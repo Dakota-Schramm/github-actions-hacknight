@@ -1,0 +1,83 @@
+{
+  "name": "@alecvision/borg",
+  "version": "0.0.1",
+  "description": "Model your data with Borg and get run-time type validation, TypeScript types, (de)serialization, and MongoDB niceties such as BSON type conversion and auto-generated validation schemas - for free. ",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "dev": "vitest --coverage",
+    "test": "vitest run",
+    "build": "tsup",
+    "lint": "npx tsc",
+    "postinstall": "npm install --no-package-lock typescript@5.0.0-beta && npm install --no-package-lock esbuild@0.17.5",
+    "ci": "npm ci && npm run lint && npm run test && npm run build",
+    "stage": "npm run build && npm publish --access=restricted --tag=next",
+    "release": "npm run build && changeset publish"
+  },
+  "repository": {
+    "type": "git",
+    "url": "github.com/alecvision/borg"
+  },
+  "keywords": [
+    "odm",
+    "object data model",
+    "validation",
+    "mongo",
+    "mongodb",
+    "typescript",
+    "zod",
+    "trpc",
+    "t3",
+    "schema",
+    "typesafe",
+    "jsonschema",
+    "bson",
+    "bsonschema"
+  ],
+  "author": "Alec Helmturner",
+  "license": "ISC",
+  "devDependencies": {
+    "@changesets/cli": "^2.26.0",
+    "@vitest/coverage-c8": "^0.29.2",
+    "@vitest/ui": "^0.29.2",
+    "esbuild": "^0.17.5",
+    "prettier": "^2.8.4",
+    "ts-node": "^10.9.1",
+    "tsup": "^6.6.3",
+    "typescript": "^5.0.0-beta",
+    "vitest": "^0.29.2"
+  },
+  "overrides": {
+    "esbuild": "$esbuild",
+    "typescript": "$typescript"
+  },
+  "dependencies": {
+    "bson": "^5.0.1"
+  },
+  "tsup": {
+    "minify": true,
+    "minifyIdentifiers": true,
+    "noExternal": [
+      "./src/types.ts"
+    ],
+    "external": [
+      "bson"
+    ],
+    "skipNodeModulesBundle": true,
+    "treeshake": true,
+    "tsconfig": "tsconfig.json",
+    "define": {
+      "import.meta.vitest": "undefined"
+    },
+    "dts": true,
+    "entry": [
+      "./src/index.ts"
+    ],
+    "outDir": "./dist",
+    "format": [
+      "esm",
+      "cjs"
+    ]
+  }
+}
