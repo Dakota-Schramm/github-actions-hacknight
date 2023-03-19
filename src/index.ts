@@ -1,18 +1,27 @@
-[
-  "/Users/alec/.nvm/versions/node/v16.14.2/bin/node",
-  "/Users/alec/dev/borg/.vscode/format.cjs",
-];
 import {
   TypeOptions,
   InferOpts,
   ApplyOpts,
-  InferParsedType,
+  MinMax,
+  MakeNotNull,
+  MakeNotNullish,
+  MakeNullable,
+  MakeNullish,
+  MakeOptional,
+  MakeRequired,
+  MakePrivate,
+  MakePublic,
   BuildStringBsonSchemaLiteral,
   BuildObjectBsonSchemaLiteral,
   BuildNumberBsonSchemaLiteral,
   BuildBooleanBsonSchemaLiteral,
   BuildOidBsonSchemaLiteral,
   BuildArrayBsonSchemaLiteral,
+  AnyKind,
+  InferMeta,
+  BorgModel,
+  SomeBorg,
+  PrettyPrint,
 } from "./types";
 import { Double, ObjectId, ObjectIdLike } from "bson";
 
@@ -28,6 +37,7 @@ import { Double, ObjectId, ObjectIdLike } from "bson";
  * - Coercion
  */
 const privateSymbol = Symbol("private");
+export type PrivateSymbol = typeof privateSymbol;
 
 /////////////////////////////////////////////////////////////////////////////////////////////
 ///                                                                                       ///
@@ -51,7 +61,9 @@ const privateSymbol = Symbol("private");
 ///                                                                                       ///
 /////////////////////////////////////////////////////////////////////////////////////////////
 
-class BorgError<T extends BorgError | undefined = undefined> extends Error {
+class BorgError<
+  const T extends BorgError | undefined = undefined,
+> extends Error {
   #path: string[] = [];
 
   constructor(message: string, cause?: T, path?: string[]) {
@@ -94,28 +106,35 @@ class BorgError<T extends BorgError | undefined = undefined> extends Error {
 /////////////////////////////////////////////////////////////////////////////////////////////
 
 /*TODO: type BorgOptions = { exactOptionalProperties?: Boolean | undefined;} */
-abstract class BorgSchema {
-  /* TODO:
-  static #options: BorgOptions = {};
-  static get options() { return this.#options }
-  static config(opts: BorgOptions) {
-    Borg.#options = Object.freeze(opts)
-  }
-*/
+abstract class BorgType<
+  const TKind extends AnyKind = AnyKind,
+  const TOpts extends TypeOptions = TypeOptions,
+  const TShape extends TKind extends "object"
+    ? { [key: string]: BorgType }
+    : TKind extends "array"
+    ? BorgType
+    : never = TKind extends "object"
+    ? { [key: string]: B.Borg }
+    : TKind extends "array"
+    ? B.Borg
+    : never,
+> {
+  abstract get meta(): PrettyPrint<InferMeta<TKind, TShape, TOpts>>;
+  abstract copy(): BorgType<TKind, TOpts, TShape>;
   abstract parse(input: unknown): any;
   abstract serialize(input: any): any;
   abstract deserialize(input: any): any;
   abstract toBson(input: any): any;
   abstract fromBson(input: any): any;
   abstract bsonSchema(): any;
-  abstract private(): BorgSchema;
-  abstract public(): BorgSchema;
-  abstract optional(): BorgSchema;
-  abstract nullable(): BorgSchema;
-  abstract nullish(): BorgSchema;
-  abstract required(): BorgSchema;
-  abstract notNull(): BorgSchema;
-  abstract notNullish(): BorgSchema;
+  abstract private(): any;
+  abstract public(): any;
+  abstract optional(): any;
+  abstract nullable(): any;
+  abstract nullish(): any;
+  abstract required(): any;
+  abstract notNull(): any;
+  abstract notNullish(): any;
   /* c8 ignore next */
 }
 
@@ -141,40 +160,64 @@ abstract class BorgSchema {
 ///                                                                                       ///
 /////////////////////////////////////////////////////////////////////////////////////////////
 
-class BorgObjectSchema<
+class BorgObject<
   const TOpts extends TypeOptions = "required, notNull, public",
-  const TShape extends { [key: string]: BorgSchema } = {
-    [key: string]: BorgSchema;
+  const TShape extends { [key: string]: BorgType } = {
+    [key: string]: BorgType;
   },
-> extends BorgSchema {
+> extends BorgType<"object", TOpts, TShape> {
   #shape: TShape;
-  #opts: InferOpts<TOpts> = {
+  #opts = {
     optional: false,
     nullable: false,
     private: false,
-  } as any;
+  };
 
   constructor(shape: TShape) {
     super();
-    this.#shape = shape;
+    this.#shape = Object.freeze(
+      Object.fromEntries(
+        Object.entries(shape).map(([key, value]) => [key, value.copy()]),
+      ),
+    ) as any;
   }
 
-  static clone<const TBorg extends BorgObjectSchema<any, any>>(
-    borg: TBorg,
-  ): TBorg {
-    const clone = new BorgObjectSchema(borg.#shape);
+  static #clone<TBorg extends B.Object>(borg: TBorg): TBorg {
+    const newShape = {} as { [key: string]: BorgType };
+    for (const key in borg.#shape) newShape[key] = borg.#shape[key]!.copy();
+    const clone = new BorgObject(newShape);
     clone.#opts = { ...borg.#opts };
     return clone as any;
   }
 
+  copy(): this {
+    return BorgObject.#clone(this as any);
+  }
+
+  get meta(): PrettyPrint<InferMeta<"object", TShape, TOpts>> {
+    return Object.freeze({
+      kind: "object",
+      shape: this.#shape,
+      keys: Object.freeze(Object.keys(this.#shape)),
+      requiredKeys: Object.freeze(
+        Object.keys(this.#shape).filter(
+          k => this.#shape[k]!.meta.optional === false,
+        ),
+      ),
+      ...this.#opts,
+    }) as any;
+  }
+
   parse(
     input: unknown,
-  ): ApplyOpts<
-    { [key in keyof TShape]: ReturnType<TShape[key]["parse"]> },
-    TOpts
-  > {
+  ): InferOpts<TOpts>["private"] extends true
+    ? typeof privateSymbol
+    : ApplyOpts<
+        { [key in keyof TShape]: ReturnType<TShape[key]["parse"]> },
+        TOpts
+      > {
     if (this.#opts.private) {
-      return privateSymbol as any;
+      return privateSymbol as never;
     }
     if (input === undefined) {
       if (this.#opts.optional) return void 0 as any;
@@ -257,13 +300,13 @@ class BorgObjectSchema<
     },
     TOpts
   > {
-    if (this.#opts.private) throw new Error("Cannot serialize private data");
+    if (this.#opts.private || input === privateSymbol)
+      throw new Error("Cannot serialize private data");
     if (input === null || input === undefined) return input as any;
 
     const result = {} as any;
     for (const key in this.#shape) {
       if (!(key in input)) continue;
-      // @ts-expect-error - this is a hack to get around the fact that TS doesn't know that the key is in the input
       const inputVal = input[key];
       if (inputVal === privateSymbol) continue;
       const schema = this.#shape[key];
@@ -280,7 +323,6 @@ class BorgObjectSchema<
     const result = {} as any;
     for (const key in this.#shape) {
       if (!(key in input)) continue;
-      // @ts-expect-error - this is a hack to get around the fact that TS doesn't know that the key is in the input
       const inputVal = input[key];
       if (inputVal === privateSymbol) continue;
       const schema = this.#shape[key];
@@ -348,94 +390,52 @@ class BorgObjectSchema<
     return result;
   }
 
-  optional(): BorgObjectSchema<
-    `optional, ${InferOpts<TOpts, "enum">["nullable"]}, ${InferOpts<
-      TOpts,
-      "enum"
-    >["private"]}`,
-    TShape
-  > {
-    const clone = BorgObjectSchema.clone(this);
-    clone.#opts.optional = true;
-    return clone as any;
+  optional(): BorgObject<MakeOptional<TOpts>, TShape> {
+    const copy = this.copy();
+    copy.#opts.optional = true;
+    return copy as any;
   }
 
-  nullable(): BorgObjectSchema<
-    `${InferOpts<TOpts, "enum">["optional"]}, nullable, ${InferOpts<
-      TOpts,
-      "enum"
-    >["private"]}`,
-    TShape
-  > {
-    const clone = BorgObjectSchema.clone(this);
+  nullable(): BorgObject<MakeNullable<TOpts>, TShape> {
+    const clone = this.copy();
     clone.#opts.nullable = true;
     return clone as any;
   }
 
-  nullish(): BorgObjectSchema<
-    `optional, nullable, ${InferOpts<TOpts, "enum">["private"]}`,
-    TShape
-  > {
-    const clone = BorgObjectSchema.clone(this);
+  nullish(): BorgObject<MakeNullish<TOpts>, TShape> {
+    const clone = this.copy();
     clone.#opts.optional = true;
     clone.#opts.nullable = true;
     return clone as any;
   }
 
-  required(): BorgObjectSchema<
-    `required, ${InferOpts<TOpts, "enum">["nullable"]}, ${InferOpts<
-      TOpts,
-      "enum"
-    >["private"]}`,
-    TShape
-  > {
-    const clone = BorgObjectSchema.clone(this);
+  required(): BorgObject<MakeRequired<TOpts>, TShape> {
+    const clone = this.copy();
     clone.#opts.optional = false;
     return clone as any;
   }
 
-  notNull(): BorgObjectSchema<
-    `${InferOpts<TOpts, "enum">["optional"]}, notNull, ${InferOpts<
-      TOpts,
-      "enum"
-    >["private"]}`,
-    TShape
-  > {
-    const clone = BorgObjectSchema.clone(this);
+  notNull(): BorgObject<MakeNotNull<TOpts>, TShape> {
+    const clone = this.copy();
     clone.#opts.nullable = false;
     return clone as any;
   }
 
-  notNullish(): BorgObjectSchema<
-    `required, notNull, ${InferOpts<TOpts, "enum">["private"]}`,
-    TShape
-  > {
-    const clone = BorgObjectSchema.clone(this);
+  notNullish(): BorgObject<MakeNotNullish<TOpts>, TShape> {
+    const clone = this.copy();
     clone.#opts.optional = false;
     clone.#opts.nullable = false;
     return clone as any;
   }
 
-  private(): BorgObjectSchema<
-    `${InferOpts<TOpts, "enum">["optional"]}, ${InferOpts<
-      TOpts,
-      "enum"
-    >["nullable"]}, private`,
-    TShape
-  > {
-    const clone = BorgObjectSchema.clone(this);
+  private(): BorgObject<MakePrivate<TOpts>, TShape> {
+    const clone = this.copy();
     clone.#opts.private = true;
     return clone as any;
   }
 
-  public(): BorgObjectSchema<
-    `${InferOpts<TOpts, "enum">["optional"]}, ${InferOpts<
-      TOpts,
-      "enum"
-    >["nullable"]}, public`,
-    TShape
-  > {
-    const clone = BorgObjectSchema.clone(this);
+  public(): BorgObject<MakePublic<TOpts>, TShape> {
+    const clone = this.copy();
     clone.#opts.private = false;
     return clone as any;
   }
@@ -464,36 +464,54 @@ class BorgObjectSchema<
 ///                                                                                       ///
 /////////////////////////////////////////////////////////////////////////////////////////////
 
-class BorgArraySchema<
+class BorgArray<
   const TOpts extends TypeOptions = "required, notNull, public",
-  const TLength extends [number | null, number | null] = [null, null],
-  const TShape extends BorgSchema = BorgSchema,
-> extends BorgSchema {
-  #opts: InferOpts<TOpts> = {
+  const TLength extends MinMax = [null, null],
+  const TShape extends BorgType = BorgType,
+> extends BorgType<"array", TOpts, TShape> {
+  #opts = {
     optional: false,
     nullable: false,
     private: false,
-  } as any;
+  };
   #shape: TShape;
   #max: TLength[1] = null;
   #min: TLength[0] = null;
 
   constructor(shape: TShape) {
     super();
-    this.#shape = shape;
+    this.#shape = shape.copy() as any;
   }
 
-  static clone<const T extends BorgArraySchema<any, any, any>>(
-    schema: T,
-  ): T {
-    const clone = new BorgArraySchema(schema.#shape);
-    clone.#opts = { ...schema.#opts };
-    clone.#max = schema.#max;
-    clone.#min = schema.#min;
+  static #clone<const TBorg extends B.Array<any, BorgType, any>>(
+    borg: TBorg,
+  ): TBorg {
+    const clone = new BorgArray(borg.#shape.copy());
+    clone.#opts = { ...borg.#opts };
+    clone.#max = borg.#max;
+    clone.#min = borg.#min;
     return clone as any;
   }
 
-  parse(input: unknown): ApplyOpts<Array<ReturnType<TShape["parse"]>>, TOpts> {
+  copy(): this {
+    return BorgArray.#clone(this);
+  }
+
+  get meta(): PrettyPrint<InferMeta<"array", TShape, TOpts>> {
+    return Object.freeze({
+      kind: "array",
+      maxItems: this.#max,
+      minItems: this.#min,
+      shape: this.#shape,
+      ...this.#opts,
+    }) as any;
+  }
+
+  parse(
+    input: unknown,
+  ): InferOpts<TOpts>["private"] extends true
+    ? typeof privateSymbol
+    : ApplyOpts<Array<ReturnType<TShape["parse"]>>, TOpts> {
     if (input === null) {
       if (this.#opts.nullable) return null as any;
       throw new Error("Expected array, got null");
@@ -599,118 +617,68 @@ class BorgArraySchema<
     return result as any;
   }
 
-  optional(): BorgArraySchema<
-    `optional, ${InferOpts<TOpts, "enum">["nullable"]}, ${InferOpts<
-      TOpts,
-      "enum"
-    >["private"]}`,
-    TLength,
-    TShape
-  > {
-    const clone = BorgArraySchema.clone(this);
+  optional(): BorgArray<MakeOptional<TOpts>, TLength, TShape> {
+    const clone = this.copy();
     clone.#opts.optional = true;
     return clone as any;
   }
 
-  nullable(): BorgArraySchema<
-    `${InferOpts<TOpts, "enum">["optional"]}, nullable, ${InferOpts<
-      TOpts,
-      "enum"
-    >["private"]}`,
-    TLength,
-    TShape
-  > {
-    const clone = BorgArraySchema.clone(this);
+  nullable(): BorgArray<MakeNullable<TOpts>, TLength, TShape> {
+    const clone = this.copy();
     clone.#opts.nullable = true;
     return clone as any;
   }
 
-  nullish(): BorgArraySchema<
-    `optional, nullable, ${InferOpts<TOpts, "enum">["private"]}`,
-    TLength,
-    TShape
-  > {
-    const clone = BorgArraySchema.clone(this);
+  nullish(): BorgArray<MakeNullish<TOpts>, TLength, TShape> {
+    const clone = this.copy();
     clone.#opts.nullable = true;
     clone.#opts.optional = true;
     return clone as any;
   }
 
-  required(): BorgArraySchema<
-    `required, ${InferOpts<TOpts, "enum">["nullable"]}, ${InferOpts<
-      TOpts,
-      "enum"
-    >["private"]}`,
-    TLength,
-    TShape
-  > {
-    const clone = BorgArraySchema.clone(this);
+  required(): BorgArray<MakeRequired<TOpts>, TLength, TShape> {
+    const clone = this.copy();
     clone.#opts.optional = false;
     return clone as any;
   }
 
-  notNull(): BorgArraySchema<
-    `${InferOpts<TOpts, "enum">["optional"]}, notNull, ${InferOpts<
-      TOpts,
-      "enum"
-    >["private"]}`,
-    TLength,
-    TShape
-  > {
-    const clone = BorgArraySchema.clone(this);
+  notNull(): BorgArray<MakeNotNull<TOpts>, TLength, TShape> {
+    const clone = this.copy();
     clone.#opts.nullable = false;
     return clone as any;
   }
 
-  notNullish(): BorgArraySchema<
-    `required, notNull, ${InferOpts<TOpts, "enum">["private"]}`,
-    TLength,
-    TShape
-  > {
-    const clone = BorgArraySchema.clone(this);
+  notNullish(): BorgArray<MakeNotNullish<TOpts>, TLength, TShape> {
+    const clone = this.copy();
     clone.#opts.nullable = false;
     clone.#opts.optional = false;
     return clone as any;
   }
 
-  private(): BorgArraySchema<
-    `${InferOpts<TOpts, "enum">["optional"]}, ${InferOpts<
-      TOpts,
-      "enum"
-    >["nullable"]}, private`,
-    TLength,
-    TShape
-  > {
-    const clone = BorgArraySchema.clone(this);
+  private(): BorgArray<MakePrivate<TOpts>, TLength, TShape> {
+    const clone = this.copy();
     clone.#opts.private = true;
     return clone as any;
   }
 
-  public(): BorgArraySchema<
-    `${InferOpts<TOpts, "enum">["optional"]}, ${InferOpts<
-      TOpts,
-      "enum"
-    >["nullable"]}, public`,
-    TLength,
-    TShape
-  > {
-    const clone = BorgArraySchema.clone(this);
+  public(): BorgArray<MakePublic<TOpts>, TLength, TShape> {
+    const clone = this.copy();
     clone.#opts.private = false;
     return clone as any;
   }
 
   max<const N extends number>(
     length: N,
-  ): BorgArraySchema<TOpts, [TLength[0], N], TShape> {
-    const clone = BorgArraySchema.clone(this);
+  ): BorgArray<TOpts, [TLength[0], N], TShape> {
+    const clone = this.copy();
     clone.#max = length;
     return clone as any;
   }
 
   min<const N extends number>(
     length: N,
-  ): BorgArraySchema<TOpts, [N, TLength[1]], TShape> {
-    const clone = BorgArraySchema.clone(this);
+  ): BorgArray<TOpts, [N, TLength[1]], TShape> {
+    const clone = this.copy();
     clone.#min = length;
     return clone as any;
   }
@@ -739,60 +707,90 @@ class BorgArraySchema<
 ///                                                                                       ///
 /////////////////////////////////////////////////////////////////////////////////////////////
 
-class BorgStringSchema<
+class BorgString<
   const TOpts extends TypeOptions = "required, notNull, public",
-  const TLength extends [number | null, number | null] = [null, null],
+  const TLength extends MinMax = [null, null],
   const TPattern extends string = ".*",
-> extends BorgSchema {
-  #opts: InferOpts<TOpts> = {
+> extends BorgType<"string", TOpts> {
+  #opts = {
     optional: false,
     nullable: false,
     private: false,
-  } as any;
+  };
   #min: TLength[0] = null;
   #max: TLength[1] = null;
-  #regex: RegExp | null = null;
+  #regex: RegExp | undefined = undefined;
 
   constructor() {
     super();
   }
 
-  static clone<const TBorg extends BorgStringSchema<any, any, any>>(
+  static #clone<const TBorg extends B.String<any, any, any>>(
     borg: TBorg,
   ): TBorg {
-    const clone = new BorgStringSchema();
+    const clone = new BorgString();
     clone.#opts = { ...borg.#opts };
     clone.#min = borg.#min;
     clone.#max = borg.#max;
-    clone.#regex = borg.#regex;
+    clone.#regex = borg.#regex ? new RegExp(borg.#regex) : undefined;
     return clone as any;
+  }
+
+  copy(): this {
+    return BorgString.#clone(this);
+  }
+
+  get meta(): PrettyPrint<
+    {
+      kind: "string";
+      maxLength: TLength[1];
+      minLength: TLength[0];
+      pattern: ".*" extends TPattern ? undefined : TPattern;
+      regex: ".*" extends TPattern ? undefined : RegExp;
+    } & InferOpts<TOpts>
+  > {
+    return Object.freeze({
+      ...this.#opts,
+      kind: "string",
+      maxLength: this.#max,
+      minLength: this.#min,
+      pattern: this.#regex?.source,
+      regex: this.#regex ? new RegExp(this.#regex) : undefined,
+    }) as any;
   }
 
   min<const N extends number>(
     min: N,
-  ): BorgStringSchema<TOpts, [N, TLength[1]], TPattern> {
-    const clone = BorgStringSchema.clone(this);
+  ): BorgString<TOpts, [N, TLength[1]], TPattern> {
+    const clone = this.copy();
     clone.#min = min;
     return clone as any;
   }
 
   max<const N extends number>(
     max: N,
-  ): BorgStringSchema<TOpts, [TLength[0], N], TPattern> {
-    const clone = BorgStringSchema.clone(this);
+  ): BorgString<TOpts, [TLength[0], N], TPattern> {
+    const clone = this.copy();
     clone.#max = max;
     return clone as any;
   }
-
+  /**
+   * @IMPORTANT RegExp flags are not supported, except for the "u" flag which is always set.
+   * @param pattern a string that will be used as the source for a new RegExp
+   */
   pattern<const S extends string>(
     pattern: S,
-  ): BorgStringSchema<TOpts, TLength, S> {
-    const clone = BorgStringSchema.clone(this);
-    clone.#regex = new RegExp(pattern);
+  ): BorgString<TOpts, TLength, S> {
+    const clone = this.copy();
+    clone.#regex = new RegExp(pattern, "u");
     return clone as any;
   }
 
-  parse(input: unknown): ApplyOpts<string, TOpts> {
+  parse(
+    input: unknown,
+  ): InferOpts<TOpts>["private"] extends true
+    ? typeof privateSymbol
+    : ApplyOpts<string, TOpts> {
     if (this.#opts.private) {
       return privateSymbol as any;
     }
@@ -839,7 +837,7 @@ class BorgStringSchema<
         `STRING_ERROR: Expected string to be at most ${this.#max} characters`,
       );
     }
-    if (this.#regex !== null && !this.#regex.test(input)) {
+    if (this.#regex !== undefined && !this.#regex.test(input)) {
       throw new BorgError(
         `STRING_ERROR: Expected string to match pattern ${this.#regex}`,
       );
@@ -873,102 +871,52 @@ class BorgStringSchema<
     return input;
   }
 
-  optional(): BorgStringSchema<
-    `optional, ${InferOpts<TOpts, "enum">["nullable"]}, ${InferOpts<
-      TOpts,
-      "enum"
-    >["private"]}`,
-    TLength,
-    TPattern
-  > {
-    const clone = BorgStringSchema.clone(this);
+  optional(): BorgString<MakeOptional<TOpts>, TLength, TPattern> {
+    const clone = this.copy();
     clone.#opts.optional = true;
     return clone as any;
   }
 
-  nullable(): BorgStringSchema<
-    `${InferOpts<TOpts, "enum">["optional"]}, nullable, ${InferOpts<
-      TOpts,
-      "enum"
-    >["private"]}`,
-    TLength,
-    TPattern
-  > {
-    const clone = BorgStringSchema.clone(this);
+  nullable(): BorgString<MakeNullable<TOpts>, TLength, TPattern> {
+    const clone = this.copy();
     clone.#opts.nullable = true;
     return clone as any;
   }
 
-  nullish(): BorgStringSchema<
-    `optional, nullable, ${InferOpts<TOpts, "enum">["private"]}`,
-    TLength,
-    TPattern
-  > {
-    const clone = BorgStringSchema.clone(this);
+  nullish(): BorgString<MakeNullish<TOpts>, TLength, TPattern> {
+    const clone = this.copy();
     clone.#opts.optional = true;
     clone.#opts.nullable = true;
     return clone as any;
   }
 
-  required(): BorgStringSchema<
-    `required, ${InferOpts<TOpts, "enum">["nullable"]}, ${InferOpts<
-      TOpts,
-      "enum"
-    >["private"]}`,
-    TLength,
-    TPattern
-  > {
-    const clone = BorgStringSchema.clone(this);
+  required(): BorgString<MakeRequired<TOpts>, TLength, TPattern> {
+    const clone = this.copy();
     clone.#opts.optional = false;
     return clone as any;
   }
 
-  notNull(): BorgStringSchema<
-    `${InferOpts<TOpts, "enum">["optional"]}, notNull, ${InferOpts<
-      TOpts,
-      "enum"
-    >["private"]}`,
-    TLength,
-    TPattern
-  > {
-    const clone = BorgStringSchema.clone(this);
+  notNull(): BorgString<MakeNotNull<TOpts>, TLength, TPattern> {
+    const clone = this.copy();
     clone.#opts.nullable = false;
     return clone as any;
   }
 
-  notNullish(): BorgStringSchema<
-    `required, notNull, ${InferOpts<TOpts, "enum">["private"]}`,
-    TLength,
-    TPattern
-  > {
-    const clone = BorgStringSchema.clone(this);
+  notNullish(): BorgString<MakeNotNullish<TOpts>, TLength, TPattern> {
+    const clone = this.copy();
     clone.#opts.optional = false;
     clone.#opts.nullable = false;
     return clone as any;
   }
 
-  private(): BorgStringSchema<
-    `${InferOpts<TOpts, "enum">["optional"]}, ${InferOpts<
-      TOpts,
-      "enum"
-    >["nullable"]}, private`,
-    TLength,
-    TPattern
-  > {
-    const clone = BorgStringSchema.clone(this);
+  private(): BorgString<MakePrivate<TOpts>, TLength, TPattern> {
+    const clone = this.copy();
     clone.#opts.private = true;
     return clone as any;
   }
 
-  public(): BorgStringSchema<
-    `${InferOpts<TOpts, "enum">["optional"]}, ${InferOpts<
-      TOpts,
-      "enum"
-    >["nullable"]}, public`,
-    TLength,
-    TPattern
-  > {
-    const clone = BorgStringSchema.clone(this);
+  public(): BorgString<MakePublic<TOpts>, TLength, TPattern> {
+    const clone = this.copy();
     clone.#opts.private = false;
     return clone as any;
   }
@@ -997,15 +945,15 @@ class BorgStringSchema<
 ///                                                                                       ///
 /////////////////////////////////////////////////////////////////////////////////////////////
 
-class BorgNumberSchema<
-  TOpts extends TypeOptions = "required, notNull, public",
-  TLength extends [number | null, number | null] = [null, null],
-> extends BorgSchema {
-  #opts: InferOpts<TOpts> = {
-    nullable: false,
+class BorgNumber<
+  const TOpts extends TypeOptions = "required, notNull, public",
+  const TLength extends MinMax = [null, null],
+> extends BorgType<"number", TOpts> {
+  #opts = {
     optional: false,
+    nullable: false,
     private: false,
-  } as any;
+  };
   #min: TLength[0] = null;
   #max: TLength[1] = null;
 
@@ -1013,28 +961,43 @@ class BorgNumberSchema<
     super();
   }
 
-  static clone<const TBorg extends BorgNumberSchema<any, any>>(
+  static #clone<const TBorg extends B.Number<any, any>>(
     borg: TBorg,
   ): TBorg {
-    const clone = new BorgNumberSchema() as TBorg;
+    const clone = new BorgNumber();
     clone.#opts = { ...borg.#opts };
     clone.#min = borg.#min;
     clone.#max = borg.#max;
-    return clone;
+    return clone as any;
   }
 
-  min<const N extends number>(
-    min: N,
-  ): BorgNumberSchema<TOpts, [N, TLength[1]]> {
-    const clone = BorgNumberSchema.clone(this);
+  copy(): this {
+    return BorgNumber.#clone(this);
+  }
+
+  get meta(): PrettyPrint<
+    {
+      kind: "number";
+      max: TLength[1];
+      min: TLength[0];
+    } & InferOpts<TOpts>
+  > {
+    return Object.freeze({
+      kind: "number",
+      max: this.#max,
+      min: this.#min,
+      ...this.#opts,
+    }) as any;
+  }
+
+  min<const N extends number>(min: N): BorgNumber<TOpts, [N, TLength[1]]> {
+    const clone = this.copy();
     clone.#min = min;
     return clone as any;
   }
 
-  max<const N extends number>(
-    max: N,
-  ): BorgNumberSchema<TOpts, [TLength[0], N]> {
-    const clone = BorgNumberSchema.clone(this);
+  max<const N extends number>(max: N): BorgNumber<TOpts, [TLength[0], N]> {
+    const clone = this.copy();
     clone.#max = max;
     return clone as any;
   }
@@ -1042,16 +1005,20 @@ class BorgNumberSchema<
   range<const N extends number, const M extends number>(
     min: N,
     max: M,
-  ): BorgNumberSchema<TOpts, [N, M]> {
-    const clone = BorgNumberSchema.clone(this);
+  ): BorgNumber<TOpts, [N, M]> {
+    const clone = this.copy();
     clone.#min = min;
     clone.#max = max;
     return clone as any;
   }
 
-  parse(input: unknown): ApplyOpts<number, TOpts> {
+  parse(
+    input: unknown,
+  ): InferOpts<TOpts>["private"] extends true
+    ? typeof privateSymbol
+    : ApplyOpts<number, TOpts> {
     if (this.#opts.private) {
-      return privateSymbol as any;
+      return privateSymbol as never;
     }
     if (input === null) {
       if (this.#opts.nullable) {
@@ -1107,8 +1074,8 @@ class BorgNumberSchema<
     return typeof input === "number" ? new Double(input) : (input as any);
   }
 
-  fromBson(input: ReturnType<this["toBson"]>): Parameters<this["toBson"]>[0] {
-    return input?.valueOf() ?? (input as any);
+  fromBson(input: ReturnType<this["toBson"]>): ApplyOpts<number, TOpts> {
+    return (input?.valueOf() ?? input) as any;
   }
 
   serialize(input: ApplyOpts<number, TOpts>) {
@@ -1119,94 +1086,52 @@ class BorgNumberSchema<
     return input;
   }
 
-  optional(): BorgNumberSchema<
-    `optional, ${InferOpts<TOpts, "enum">["nullable"]}, ${InferOpts<
-      TOpts,
-      "enum"
-    >["private"]}`,
-    TLength
-  > {
-    const clone = BorgNumberSchema.clone(this);
+  optional(): BorgNumber<MakeOptional<TOpts>, TLength> {
+    const clone = this.copy();
     clone.#opts.optional = true;
     return clone as any;
   }
 
-  nullable(): BorgNumberSchema<
-    `${InferOpts<TOpts, "enum">["optional"]}, nullable, ${InferOpts<
-      TOpts,
-      "enum"
-    >["private"]}`,
-    TLength
-  > {
-    const clone = BorgNumberSchema.clone(this);
+  nullable(): BorgNumber<MakeNullable<TOpts>, TLength> {
+    const clone = this.copy();
     clone.#opts.nullable = true;
     return clone as any;
   }
 
-  required(): BorgNumberSchema<
-    `required, ${InferOpts<TOpts, "enum">["nullable"]}, ${InferOpts<
-      TOpts,
-      "enum"
-    >["private"]}`,
-    TLength
-  > {
-    const clone = BorgNumberSchema.clone(this);
+  required(): BorgNumber<MakeRequired<TOpts>, TLength> {
+    const clone = this.copy();
     clone.#opts.optional = false;
     return clone as any;
   }
 
-  notNull(): BorgNumberSchema<
-    `${InferOpts<TOpts, "enum">["optional"]}, notNull, ${InferOpts<
-      TOpts,
-      "enum"
-    >["private"]}`,
-    TLength
-  > {
-    const clone = BorgNumberSchema.clone(this);
+  notNull(): BorgNumber<MakeNotNull<TOpts>, TLength> {
+    const clone = this.copy();
     clone.#opts.nullable = false;
     return clone as any;
   }
 
-  nullish(): BorgNumberSchema<
-    `optional, nullable, ${InferOpts<TOpts, "enum">["private"]}`,
-    TLength
-  > {
-    const clone = BorgNumberSchema.clone(this);
+  nullish(): BorgNumber<MakeNullish<TOpts>, TLength> {
+    const clone = this.copy();
     clone.#opts.optional = true;
     clone.#opts.nullable = true;
     return clone as any;
   }
 
-  notNullish(): BorgNumberSchema<
-    `required, notNull, ${InferOpts<TOpts, "enum">["private"]}`,
-    TLength
-  > {
-    const clone = BorgNumberSchema.clone(this);
+  notNullish(): BorgNumber<MakeNotNullish<TOpts>, TLength> {
+    const clone = this.copy();
     clone.#opts.optional = false;
     clone.#opts.nullable = false;
     return clone as any;
   }
 
-  private(): BorgNumberSchema<
-    `${InferOpts<TOpts, "enum">["optional"]}, ${InferOpts<
-      TOpts,
-      "enum"
-    >["nullable"]}, private`,
-    TLength
-  > {
-    const clone = BorgNumberSchema.clone(this);
+  private(): BorgNumber<MakePrivate<TOpts>, TLength> {
+    const clone = this.copy();
     clone.#opts.private = true;
     return clone as any;
   }
 
-  public(): BorgNumberSchema<
-    `${InferOpts<TOpts, "enum">["optional"]}, ${InferOpts<
-      TOpts,
-      "enum"
-    >["nullable"]}, public`,
-    TLength
-  > {
-    const clone = BorgNumberSchema.clone(this);
+  public(): BorgNumber<MakePublic<TOpts>, TLength> {
+    const clone = this.copy();
     clone.#opts.private = false;
     return clone as any;
   }
@@ -1234,30 +1159,43 @@ class BorgNumberSchema<
 ///                                                                                       ///
 /////////////////////////////////////////////////////////////////////////////////////////////
 
-class BorgBooleanSchema<
-  TOpts extends TypeOptions = "required, notNull, public",
-> extends BorgSchema {
-  #opts: InferOpts<TOpts> = {
+class BorgBoolean<
+  const TOpts extends TypeOptions = "required, notNull, public",
+> extends BorgType<"boolean", TOpts> {
+  #opts = {
     optional: false,
     nullable: false,
     private: false,
-  } as any;
+  };
 
   constructor() {
     super();
   }
 
-  static clone<const TBorg extends BorgBooleanSchema<any>>(
-    borg: TBorg,
-  ): TBorg {
-    const clone = new BorgBooleanSchema();
-    clone.#opts = borg.#opts;
+  static #clone<const TBorg extends B.Boolean<any>>(borg: TBorg): TBorg {
+    const clone = new BorgBoolean();
+    clone.#opts = { ...borg.#opts };
     return clone as any;
   }
 
-  parse(input: unknown): ApplyOpts<boolean, TOpts> {
+  copy(): this {
+    return BorgBoolean.#clone(this);
+  }
+
+  get meta(): PrettyPrint<InferOpts<TOpts> & { kind: "boolean" }> {
+    return Object.freeze({
+      kind: "boolean",
+      ...this.#opts,
+    }) as any;
+  }
+
+  parse(
+    input: unknown,
+  ): InferOpts<TOpts>["private"] extends true
+    ? typeof privateSymbol
+    : ApplyOpts<boolean, TOpts> {
     if (this.#opts.private) {
-      return privateSymbol as any;
+      return privateSymbol as never;
     }
     if (input === null) {
       if (this.#opts.nullable) {
@@ -1313,76 +1251,52 @@ class BorgBooleanSchema<
     return input;
   }
 
-  optional(): BorgBooleanSchema<`optional, ${InferOpts<
-    TOpts,
-    "enum"
-  >["nullable"]}, ${InferOpts<TOpts, "enum">["private"]}`> {
-    const clone = BorgBooleanSchema.clone(this);
+  optional(): BorgBoolean<MakeOptional<TOpts>> {
+    const clone = this.copy();
     clone.#opts.optional = true;
     return clone as any;
   }
 
-  nullable(): BorgBooleanSchema<`${InferOpts<
-    TOpts,
-    "enum"
-  >["optional"]}, nullable, ${InferOpts<TOpts, "enum">["private"]}`> {
-    const clone = BorgBooleanSchema.clone(this);
+  nullable(): BorgBoolean<MakeNullable<TOpts>> {
+    const clone = this.copy();
     clone.#opts.nullable = true;
     return clone as any;
   }
 
-  required(): BorgBooleanSchema<`required, ${InferOpts<
-    TOpts,
-    "enum"
-  >["nullable"]}, ${InferOpts<TOpts, "enum">["private"]}`> {
-    const clone = BorgBooleanSchema.clone(this);
+  required(): BorgBoolean<MakeRequired<TOpts>> {
+    const clone = this.copy();
     clone.#opts.optional = false;
     return clone as any;
   }
 
-  notNull(): BorgBooleanSchema<`${InferOpts<
-    TOpts,
-    "enum"
-  >["optional"]}, notNull, ${InferOpts<TOpts, "enum">["private"]}`> {
-    const clone = BorgBooleanSchema.clone(this);
+  notNull(): BorgBoolean<MakeNotNull<TOpts>> {
+    const clone = this.copy();
     clone.#opts.nullable = false;
     return clone as any;
   }
 
-  nullish(): BorgBooleanSchema<`optional, nullable, ${InferOpts<
-    TOpts,
-    "enum"
-  >["private"]}`> {
-    const clone = BorgBooleanSchema.clone(this);
+  nullish(): BorgBoolean<MakeNullish<TOpts>> {
+    const clone = this.copy();
     clone.#opts.optional = true;
     clone.#opts.nullable = true;
     return clone as any;
   }
 
-  notNullish(): BorgBooleanSchema<`required, notNull, ${InferOpts<
-    TOpts,
-    "enum"
-  >["private"]}`> {
-    const clone = BorgBooleanSchema.clone(this);
+  notNullish(): BorgBoolean<MakeNotNullish<TOpts>> {
+    const clone = this.copy();
     clone.#opts.optional = false;
     clone.#opts.nullable = false;
     return clone as any;
   }
 
-  private(): BorgBooleanSchema<`${InferOpts<
-    TOpts,
-    "enum"
-  >["optional"]}, ${InferOpts<TOpts, "enum">["nullable"]}, private`> {
-    const clone = BorgBooleanSchema.clone(this);
+  private(): BorgBoolean<MakePrivate<TOpts>> {
+    const clone = this.copy();
     clone.#opts.private = true;
     return clone as any;
   }
 
-  public(): BorgBooleanSchema<`${InferOpts<
-    TOpts,
-    "enum"
-  >["optional"]}, ${InferOpts<TOpts, "enum">["nullable"]}, public`> {
-    const clone = BorgBooleanSchema.clone(this);
+  public(): BorgBoolean<MakePublic<TOpts>> {
+    const clone = this.copy();
     clone.#opts.private = false;
     return clone as any;
   }
@@ -1410,28 +1324,43 @@ class BorgBooleanSchema<
 ///                                                                                       ///
 /////////////////////////////////////////////////////////////////////////////////////////////
 
-class BorgIdSchema<
-  TOpts extends TypeOptions = "required, notNull, public",
-  TFormat extends string | ObjectId = string,
-> extends BorgSchema {
-  #opts: InferOpts<TOpts> = {
+class BorgId<
+  const TOpts extends TypeOptions = "required, notNull, public",
+  const TFormat extends string | ObjectId = string,
+> extends BorgType<"id", TOpts> {
+  #opts = {
     optional: false,
     nullable: false,
     private: false,
-  } as any;
-  #format: TFormat extends ObjectId ? false : true = true as any;
+  };
+  #format = true;
 
   constructor() {
     super();
   }
 
-  static clone<const TBorg extends BorgIdSchema<any, any>>(
-    borg: TBorg,
-  ): TBorg {
-    const clone = new BorgIdSchema();
-    clone.#opts = borg.#opts;
+  get meta(): PrettyPrint<
+    InferOpts<TOpts> & {
+      kind: "id";
+      format: ObjectId extends TFormat ? "oid" : "string";
+    }
+  > {
+    return Object.freeze({
+      kind: "id",
+      format: this.#format ? "string" : "oid",
+      ...this.#opts,
+    }) as any;
+  }
+
+  static #clone<const TBorg extends B.Id<any, any>>(borg: TBorg): TBorg {
+    const clone = new BorgId();
+    clone.#opts = { ...borg.#opts };
     clone.#format = borg.#format as any;
     return clone as any;
+  }
+
+  copy(): this {
+    return BorgId.#clone(this);
   }
 
   static isObjectIdLike(input: unknown): input is ObjectIdLike {
@@ -1446,9 +1375,13 @@ class BorgIdSchema<
 
   static fromHex = (val: string) => ObjectId.createFromHexString(val);
 
-  parse(input: unknown): ApplyOpts<TFormat, TOpts> {
+  parse(
+    input: unknown,
+  ): InferOpts<TOpts>["private"] extends true
+    ? typeof privateSymbol
+    : ApplyOpts<TFormat, TOpts> {
     if (this.#opts.private) {
-      return privateSymbol as any;
+      return privateSymbol as never;
     }
     if (input === null) {
       if (this.#opts.nullable) {
@@ -1475,22 +1408,22 @@ class BorgIdSchema<
 
     if (typeof input === "string") {
       if (ObjectId.isValid(input))
-        return this.#format ? input : (BorgIdSchema.fromHex(input) as any);
+        return this.#format ? input : (BorgId.fromHex(input) as any);
     }
     if (typeof input === "number") {
       const hex = input.toString(16);
       if (ObjectId.isValid(input))
-        return this.#format ? hex : (BorgIdSchema.fromHex(hex) as any);
+        return this.#format ? hex : (BorgId.fromHex(hex) as any);
     }
     if (input instanceof Uint8Array) {
       const hex = Buffer.from(input).toString("hex");
       if (ObjectId.isValid(input))
-        return this.#format ? hex : (BorgIdSchema.fromHex(hex) as any);
+        return this.#format ? hex : (BorgId.fromHex(hex) as any);
     }
-    if (BorgIdSchema.isObjectIdLike(input)) {
+    if (BorgId.isObjectIdLike(input)) {
       const hex = input.toHexString();
       if (ObjectId.isValid(input))
-        return this.#format ? hex : (BorgIdSchema.fromHex(hex) as any);
+        return this.#format ? hex : (BorgId.fromHex(hex) as any);
     }
     if (input instanceof ObjectId) {
       return this.#format ? input.toHexString() : (input as any);
@@ -1511,7 +1444,7 @@ class BorgIdSchema<
   toBson(input: ApplyOpts<TFormat, TOpts>): ApplyOpts<ObjectId, TOpts> {
     if (input === undefined) return undefined as any;
     if (input === null) return null as any;
-    if (typeof input === "string") return BorgIdSchema.fromHex(input) as any;
+    if (typeof input === "string") return BorgId.fromHex(input) as any;
     return input as any;
   }
 
@@ -1533,109 +1466,67 @@ class BorgIdSchema<
     if (input === undefined) return undefined as any;
     if (input === null) return null as any;
     if (this.#format) return input as any;
-    return BorgIdSchema.fromHex(input) as any;
+    return BorgId.fromHex(input) as any;
   }
 
-  optional(): BorgIdSchema<
-    `optional, ${InferOpts<TOpts, "enum">["nullable"]}, ${InferOpts<
-      TOpts,
-      "enum"
-    >["private"]}`,
-    TFormat
-  > {
-    const clone = BorgIdSchema.clone(this);
+  optional(): BorgId<MakeOptional<TOpts>, TFormat> {
+    const clone = this.copy();
     clone.#opts.optional = true;
     return clone as any;
   }
 
-  nullable(): BorgIdSchema<
-    `${InferOpts<TOpts, "enum">["optional"]}, nullable, ${InferOpts<
-      TOpts,
-      "enum"
-    >["private"]}`,
-    TFormat
-  > {
-    const clone = BorgIdSchema.clone(this);
+  nullable(): BorgId<MakeNullable<TOpts>, TFormat> {
+    const clone = this.copy();
     clone.#opts.nullable = true;
     return clone as any;
   }
 
-  nullish(): BorgIdSchema<
-    `optional, nullable, ${InferOpts<TOpts, "enum">["private"]}`,
-    TFormat
-  > {
-    const clone = BorgIdSchema.clone(this);
+  nullish(): BorgId<MakeNullish<TOpts>, TFormat> {
+    const clone = this.copy();
     clone.#opts.optional = true;
     clone.#opts.nullable = true;
     return clone as any;
   }
 
-  required(): BorgIdSchema<
-    `required, ${InferOpts<TOpts, "enum">["nullable"]}, ${InferOpts<
-      TOpts,
-      "enum"
-    >["private"]}`,
-    TFormat
-  > {
-    const clone = BorgIdSchema.clone(this);
+  required(): BorgId<MakeRequired<TOpts>, TFormat> {
+    const clone = this.copy();
     clone.#opts.optional = false;
     return clone as any;
   }
 
-  notNull(): BorgIdSchema<
-    `${InferOpts<TOpts, "enum">["optional"]}, notNull, ${InferOpts<
-      TOpts,
-      "enum"
-    >["private"]}`,
-    TFormat
-  > {
-    const clone = BorgIdSchema.clone(this);
+  notNull(): BorgId<MakeNotNull<TOpts>, TFormat> {
+    const clone = this.copy();
     clone.#opts.nullable = false;
     return clone as any;
   }
 
-  notNullish(): BorgIdSchema<
-    `required, notNull, ${InferOpts<TOpts, "enum">["private"]}`,
-    TFormat
-  > {
-    const clone = BorgIdSchema.clone(this);
+  notNullish(): BorgId<MakeNotNullish<TOpts>, TFormat> {
+    const clone = this.copy();
     clone.#opts.optional = false;
     clone.#opts.nullable = false;
     return clone as any;
   }
 
-  private(): BorgIdSchema<
-    `${InferOpts<TOpts, "enum">["optional"]}, ${InferOpts<
-      TOpts,
-      "enum"
-    >["nullable"]}, private`,
-    TFormat
-  > {
-    const clone = BorgIdSchema.clone(this);
+  private(): BorgId<MakePrivate<TOpts>, TFormat> {
+    const clone = this.copy();
     clone.#opts.private = true;
     return clone as any;
   }
 
-  public(): BorgIdSchema<
-    `${InferOpts<TOpts, "enum">["optional"]}, ${InferOpts<
-      TOpts,
-      "enum"
-    >["nullable"]}, public`,
-    TFormat
-  > {
-    const clone = BorgIdSchema.clone(this);
+  public(): BorgId<MakePublic<TOpts>, TFormat> {
+    const clone = this.copy();
     clone.#opts.private = false;
     return clone as any;
   }
 
-  asString(): BorgIdSchema<TOpts, string> {
-    const clone = BorgIdSchema.clone(this);
+  asString(): BorgId<TOpts, string> {
+    const clone = this.copy();
     clone.#format = true as any;
     return clone as any;
   }
 
-  asObjectId(): BorgIdSchema<TOpts, ObjectId> {
-    const clone = BorgIdSchema.clone(this);
+  asObjectId(): BorgId<TOpts, ObjectId> {
+    const clone = this.copy();
     clone.#format = false as any;
     return clone as any;
   }
@@ -1663,96 +1554,109 @@ class BorgIdSchema<
 ///                                                                                       ///
 /////////////////////////////////////////////////////////////////////////////////////////////
 
+function makeBorg<TSchema extends BorgObject<TypeOptions>>(
+  schema: TSchema,
+): BorgModel<TSchema>;
+function makeBorg<
+  TSchema extends BorgObject<TypeOptions>,
+  TServerModel extends object,
+>(
+  schema: TSchema,
+  transformInput: (input: B.Type<TSchema>) => TServerModel,
+): BorgModel<TSchema, TServerModel>;
+function makeBorg<
+  TInputSchema extends BorgObject<TypeOptions>,
+  TServerModel extends object,
+  TOutputSchema extends BorgObject<TypeOptions>,
+>(
+  inputSchema: TInputSchema,
+  transformInput: (input: B.Type<TInputSchema>) => TServerModel,
+  transformOutput: (input: TServerModel) => B.Type<TOutputSchema>,
+  outputSchema: TOutputSchema,
+): BorgModel<TInputSchema, TServerModel, TOutputSchema>;
+
+function makeBorg<
+  TInputSchema extends BorgObject<TypeOptions>,
+  TServerModel extends object,
+  TOutputSchema extends BorgObject<TypeOptions>,
+>(
+  schema: TInputSchema,
+  transformInput: (input: B.Type<TInputSchema>) => TServerModel = (
+    input: B.Type<TInputSchema>,
+  ) => input as any,
+  transformOutput: (input: TServerModel) => B.Type<TOutputSchema> = (
+    input: TServerModel,
+  ) => input as any,
+  outputSchema: TOutputSchema = schema as any,
+): BorgModel<TInputSchema, TServerModel, TOutputSchema> {
+  return {
+    createFromRequest: input => transformOutput(transformInput(input)),
+    sanitizeResponse: input => transformOutput(input),
+    serializeInput: parsedInput => schema.serialize(parsedInput) as any,
+    deserializeInput: serializedInput => schema.parse(serializedInput) as any,
+    serializeOutput: parsedOutput =>
+      outputSchema.serialize(parsedOutput) as any,
+    deserializeOutput: serializedOutput =>
+      outputSchema.parse(serializedOutput) as any,
+    parseInput: input => schema.parse(input) as any,
+    parseOutput: input => outputSchema.parse(input) as any,
+  };
+}
+
 const B = {
-  id: () => new BorgIdSchema(),
-  string: () => new BorgStringSchema(),
-  number: () => new BorgNumberSchema(),
-  boolean: () => new BorgBooleanSchema(),
-  array: <T extends BorgSchema>(item: T) => new BorgArraySchema(item),
-  object: <T extends { [key: string]: BorgSchema }>(shape: T) =>
-    new BorgObjectSchema(shape),
-  borg: function model<
-    const TInputSchema extends BorgObjectSchema<any, any>,
-    const TOutputSchema extends BorgObjectSchema<any, any> = TInputSchema,
-    TServerModel extends object = InferParsedType<TInputSchema>,
-  >(
-    schema: TInputSchema,
-    transformInput?: (input: InferParsedType<TInputSchema>) => TServerModel,
-    transformOutput?: (input: TServerModel) => InferParsedType<TOutputSchema>,
-    outputSchema: TOutputSchema = schema as any,
-  ) {
-    return {
-      createFromRequest: (input: unknown): TServerModel => {
-        let parsed = schema.parse(input);
-        parsed = transformInput?.(parsed as any) ?? parsed;
-        return parsed as any;
-      },
-      sanitizeResponse: (
-        input: TServerModel,
-      ): InferParsedType<TOutputSchema> => {
-        return outputSchema.parse(transformOutput?.(input) ?? input) as any;
-      },
-      serializeOutput: (
-        parsedOutput: InferParsedType<TOutputSchema>,
-      ): ReturnType<TOutputSchema["serialize"]> => {
-        return outputSchema.serialize(parsedOutput) as any;
-      },
-      deserializeOutput: (
-        serializedOutput: ReturnType<TOutputSchema["serialize"]>,
-      ): ReturnType<TOutputSchema["deserialize"]> => {
-        return outputSchema.deserialize(serializedOutput) as any;
-      },
-      serializeInput: (
-        parsedInput: InferParsedType<TInputSchema>,
-      ): ReturnType<TInputSchema["serialize"]> => {
-        return schema.serialize(parsedInput) as any;
-      },
-      deserializeInput: (
-        serializedInput: ReturnType<TInputSchema["serialize"]>,
-      ): ReturnType<TInputSchema["deserialize"]> => {
-        return schema.deserialize(serializedInput) as any;
-      },
-      parseInput: (input: unknown): InferParsedType<TInputSchema> => {
-        return schema.parse(input) as any;
-      },
-      parseOutput: (input: unknown): InferParsedType<TOutputSchema> => {
-        return outputSchema.parse(input) as any;
-      },
-    };
-  },
+  id: () => new BorgId(),
+  string: () => new BorgString(),
+  number: () => new BorgNumber(),
+  boolean: () => new BorgBoolean(),
+  array: <T extends BorgType>(item: T) => new BorgArray(item),
+  object: <T extends { [key: string]: BorgType }>(shape: T) =>
+    new BorgObject(shape),
+  model: makeBorg,
 };
 
-declare namespace B {
-  export type BorgId<
-    TOpts extends TypeOptions,
-    TFormat extends "string" | "oid",
-  > = BorgIdSchema<TOpts, TFormat>;
+declare module B {
+  export type Boolean<TOpts extends TypeOptions = TypeOptions> =
+    BorgBoolean<TOpts>;
 
-  export type BorgString<
-    TOpts extends TypeOptions,
-    TLength extends [number | null, number | null] = [null, null],
-    TPattern extends string = ".*",
-  > = BorgStringSchema<TOpts, TLength, TPattern>;
+  export type Id<
+    TOpts extends TypeOptions = TypeOptions,
+    TFormat extends "string" | "oid" = "string" | "oid",
+  > = BorgId<TOpts, TFormat>;
 
-  export type BorgNumber<
-    TOpts extends TypeOptions,
-    TLength extends [number | null, number | null] = [null, null],
-  > = BorgNumberSchema<TOpts, TLength>;
+  export type Number<
+    TOpts extends TypeOptions = TypeOptions,
+    TLength extends MinMax = MinMax,
+  > = BorgNumber<TOpts, TLength>;
 
-  export type BorgBoolean<TOpts extends TypeOptions> = BorgBooleanSchema<TOpts>;
+  export type String<
+    TOpts extends TypeOptions = TypeOptions,
+    TLength extends MinMax = MinMax,
+    TPattern extends string = string,
+  > = BorgString<TOpts, TLength, TPattern>;
 
-  export type BorgArray<
-    TOpts extends TypeOptions,
-    TItems extends BorgSchema,
-    TLength extends [number | null, number | null] = [null, null],
-  > = BorgArraySchema<TOpts, TLength, TItems>;
+  export type Array<
+    TOpts extends TypeOptions = TypeOptions,
+    TItems extends B.Borg = B.Borg,
+    TLength extends MinMax = MinMax,
+  > = BorgArray<TOpts, TLength, TItems>;
 
-  export type BorgObject<
-    TOpts extends TypeOptions,
-    TShape extends { [key: string]: BorgSchema },
-  > = BorgObjectSchema<TOpts, TShape>;
+  export type Object<
+    TOpts extends TypeOptions = TypeOptions,
+    TShape extends { [key: string]: Borg } = { [key: string]: Borg },
+  > = BorgObject<TOpts, TShape>;
 
-  export type Borg = BorgSchema;
+  export type Borg<
+    TOptions extends TypeOptions = TypeOptions,
+    TKind extends AnyKind = AnyKind,
+  > = BorgType<TKind, TOptions>;
+
+  export type AnyBorg = SomeBorg;
+
+  export type Type<TBorg extends AnyBorg> = ReturnType<TBorg["parse"]>;
+  export type BsonType<TBorg extends AnyBorg> = ReturnType<TBorg["toBson"]>;
+  export type Serialized<TBorg extends AnyBorg> = ReturnType<
+    TBorg["serialize"]
+  >;
 }
 
 export default B;
@@ -2003,65 +1907,61 @@ if (import.meta.vitest) {
   describe("Types", () => {
     it("should have the correct types", () => {
       assertType<
-        BorgObjectSchema<
+        BorgObject<
           "required, notNull, public",
           {
-            base: BorgStringSchema<
-              "required, notNull, public",
-              [null, null],
-              ".*"
-            >;
-            optional: BorgStringSchema<
+            base: BorgString<"required, notNull, public", [null, null], ".*">;
+            optional: BorgString<
               "optional, notNull, public",
               [null, null],
               ".*"
             >;
-            nullable: BorgStringSchema<
+            nullable: BorgString<
               "required, nullable, public",
               [null, null],
               ".*"
             >;
-            nullish: BorgStringSchema<
+            nullish: BorgString<
               "optional, nullable, public",
               [null, null],
               ".*"
             >;
-            optionalNullable: BorgStringSchema<
+            optionalNullable: BorgString<
               "optional, nullable, public",
               [null, null],
               ".*"
             >;
-            optionalRequired: BorgStringSchema<
+            optionalRequired: BorgString<
               "required, notNull, public",
               [null, null],
               ".*"
             >;
-            nullableOptional: BorgStringSchema<
+            nullableOptional: BorgString<
               "optional, nullable, public",
               [null, null],
               ".*"
             >;
-            nullableNotNull: BorgStringSchema<
+            nullableNotNull: BorgString<
               "required, notNull, public",
               [null, null],
               ".*"
             >;
-            nullishNotNullish: BorgStringSchema<
+            nullishNotNullish: BorgString<
               "required, notNull, public",
               [null, null],
               ".*"
             >;
-            private: BorgStringSchema<
+            private: BorgString<
               "required, notNull, private",
               [null, null],
               ".*"
             >;
-            privatePublic: BorgStringSchema<
+            privatePublic: BorgString<
               "required, notNull, public",
               [null, null],
               ".*"
             >;
-            arbitraryChaining: BorgStringSchema<
+            arbitraryChaining: BorgString<
               "required, nullable, public",
               [null, null],
               ".*"
@@ -2071,51 +1971,39 @@ if (import.meta.vitest) {
       >(stringTestObject);
 
       assertType<
-        BorgObjectSchema<
+        BorgObject<
           "required, notNull, public",
           {
-            base: BorgNumberSchema<"required, notNull, public", [null, null]>;
-            optional: BorgNumberSchema<
-              "optional, notNull, public",
-              [null, null]
-            >;
-            nullable: BorgNumberSchema<
-              "required, nullable, public",
-              [null, null]
-            >;
-            nullish: BorgNumberSchema<
+            base: BorgNumber<"required, notNull, public", [null, null]>;
+            optional: BorgNumber<"optional, notNull, public", [null, null]>;
+            nullable: BorgNumber<"required, nullable, public", [null, null]>;
+            nullish: BorgNumber<"optional, nullable, public", [null, null]>;
+            optionalNullable: BorgNumber<
               "optional, nullable, public",
               [null, null]
             >;
-            optionalNullable: BorgNumberSchema<
+            optionalRequired: BorgNumber<
+              "required, notNull, public",
+              [null, null]
+            >;
+            nullableOptional: BorgNumber<
               "optional, nullable, public",
               [null, null]
             >;
-            optionalRequired: BorgNumberSchema<
+            nullableNotNull: BorgNumber<
               "required, notNull, public",
               [null, null]
             >;
-            nullableOptional: BorgNumberSchema<
-              "optional, nullable, public",
-              [null, null]
-            >;
-            nullableNotNull: BorgNumberSchema<
+            nullishNotNullish: BorgNumber<
               "required, notNull, public",
               [null, null]
             >;
-            nullishNotNullish: BorgNumberSchema<
+            private: BorgNumber<"required, notNull, private", [null, null]>;
+            privatePublic: BorgNumber<
               "required, notNull, public",
               [null, null]
             >;
-            private: BorgNumberSchema<
-              "required, notNull, private",
-              [null, null]
-            >;
-            privatePublic: BorgNumberSchema<
-              "required, notNull, public",
-              [null, null]
-            >;
-            arbitraryChaining: BorgNumberSchema<
+            arbitraryChaining: BorgNumber<
               "required, nullable, public",
               [null, null]
             >;
@@ -2124,10 +2012,10 @@ if (import.meta.vitest) {
       >(numberTestObject);
 
       assertType<
-        BorgObjectSchema<
+        BorgObject<
           "required, notNull, public",
           {
-            strings: BorgObjectSchema<
+            strings: BorgObject<
               "required, notNull, public",
               {
                 base: typeof stringTestObject;
@@ -2150,7 +2038,7 @@ if (import.meta.vitest) {
                 >;
               }
             >;
-            numbers: BorgObjectSchema<
+            numbers: BorgObject<
               "required, notNull, public",
               {
                 base: typeof numberTestObject;
@@ -2178,10 +2066,10 @@ if (import.meta.vitest) {
       >(scalarsTestObject);
 
       assertType<
-        BorgObjectSchema<
+        BorgObject<
           "required, notNull, public",
           {
-            withProperties: BorgObjectSchema<
+            withProperties: BorgObject<
               "required, notNull, public",
               {
                 base: typeof scalarsTestObject;
@@ -2204,10 +2092,7 @@ if (import.meta.vitest) {
                 >;
               }
             >;
-            withoutProperties: BorgObjectSchema<
-              "required, notNull, public",
-              {}
-            >;
+            withoutProperties: BorgObject<"required, notNull, public", {}>;
           }
         >
       >(objectTestObject);

@@ -12,4 +12,5 @@
     "[typescript]": {
         "editor.defaultFormatter": "jkillian.custom-local-formatters"
     },
+    "typescript.tsdk": "node_modules/typescript/lib",
 }

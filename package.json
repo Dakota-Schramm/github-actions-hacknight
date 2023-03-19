@@ -10,11 +10,10 @@
     "node": ">=16.0.0"
   },
   "scripts": {
-    "dev": "vitest --coverage",
-    "test": "vitest run",
+    "dev": "vitest --coverage --ui",
+    "test": "vitest run --coverage",
     "build": "tsup",
     "lint": "npx tsc",
-    "postinstall": "npm install --no-package-lock typescript@5.0.0-beta && npm install --no-package-lock esbuild@0.17.5",
     "ci": "npm ci && npm run lint && npm run test && npm run build",
     "stage": "npm run build && npm publish --access=restricted --tag=next",
     "release": "npm run build && changeset publish"
@@ -43,17 +42,15 @@
   "license": "ISC",
   "devDependencies": {
     "@changesets/cli": "^2.26.0",
-    "@vitest/coverage-c8": "^0.29.2",
+    "@vitest/coverage-c8": "^0.29.3",
     "@vitest/ui": "^0.29.2",
-    "esbuild": "^0.17.5",
     "prettier": "^2.8.4",
     "ts-node": "^10.9.1",
     "tsup": "^6.6.3",
-    "typescript": "^5.0.0-beta",
-    "vitest": "^0.29.2"
+    "typescript": "^5.0.2",
+    "vitest": "^0.29.3"
   },
   "overrides": {
-    "esbuild": "$esbuild",
     "typescript": "$typescript"
   },
   "dependencies": {
