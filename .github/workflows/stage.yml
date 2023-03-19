@@ -24,6 +24,6 @@ jobs:
             cache: "npm"                  
             registry-url: https://npm.pkg.github.com/
         - name: Publish to GPR (staging)
-          run: npm run ci && npm publish
+          run: npm run ci && npx changeset version && npm publish
           env:
               NODE_AUTH_TOKEN: ${{secrets.GITHUB_TOKEN}}
