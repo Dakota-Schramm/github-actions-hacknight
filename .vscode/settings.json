@@ -1,16 +1,5 @@
 {
-    "customLocalFormatters.formatters": [
-        {
-            "languages": [
-                "typescript"
-            ],
-            "command": "node .vscode/format.cjs"
-        }
-    ],
     "editor.formatOnSaveMode": "modificationsIfAvailable",
     "editor.formatOnSave": true,
-    "[typescript]": {
-        "editor.defaultFormatter": "jkillian.custom-local-formatters"
-    },
     "typescript.tsdk": "node_modules/typescript/lib",
 }
