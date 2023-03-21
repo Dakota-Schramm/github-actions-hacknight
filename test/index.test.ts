@@ -5,12 +5,12 @@ const string = B.string();
 const number = B.number();
 const boolean = B.boolean();
 const oid = B.id();
-/* 
+
 const obj1 = B.object({
-  str: string,
-  num: number,
-  bool: boolean,
-  id: oid,
+  str: string.optional(),
+  num: number.optional(),
+  bool: boolean.optional(),
+  id: oid.optional(),
 });
 
 const arr1 = B.array(obj1);
@@ -19,17 +19,17 @@ const numArr = B.array(number);
 const boolArr = B.array(boolean);
 const oidArr = B.array(oid);
 const arr1arr = B.array(arr1);
-
+//@ts-expect-error
 const obj2 = B.object({
   obj1,
   arr1,
   arr1arr,
-  strArr,
+  strArr: strArr.optional(),
   numArr,
   boolArr,
   oidArr,
-});
- */
+}).meta.requiredKeys;
+
 const makeOptionalRecursive = (schema: B.Borg): B.Borg => {
   if (schema.meta.kind === "object") {
     const out = B.object(
@@ -45,7 +45,7 @@ const makeOptionalRecursive = (schema: B.Borg): B.Borg => {
     }
     return schema.meta.private ? out.private() : out;
   } else if (schema.meta.kind === "array") {
-    const out = B.array(makeOptionalRecursive(schema.meta.shape));
+    const out = B.array(makeOptionalRecursive(schema.meta.itemsBorg));
     if (schema.meta.nullable) {
       return schema.meta.private ? out.private().nullable() : out.nullable();
     }
@@ -65,7 +65,7 @@ const makeNullableRecursive = (schema: B.Borg): B.Borg => {
       ),
     ).nullable();
   } else if (schema.meta.kind === "array") {
-    return B.array(makeNullableRecursive(schema.meta.shape)).nullable();
+    return B.array(makeNullableRecursive(schema.meta.itemsBorg)).nullable();
   }
   return schema.nullable();
 };
