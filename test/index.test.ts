@@ -19,7 +19,7 @@ const numArr = B.array(number);
 const boolArr = B.array(boolean);
 const oidArr = B.array(oid);
 const arr1arr = B.array(arr1);
-
+//@ts-expect-error
 const obj2 = B.object({
   obj1,
   arr1,
