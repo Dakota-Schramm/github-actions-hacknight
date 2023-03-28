@@ -1,6 +1,6 @@
 import { Borg, Type } from "./Borg";
 
-export type RequirdKeysIn<TObj extends object> = TObj extends {
+type RequirdKeys<TObj extends object> = TObj extends {
   [_ in infer K]: any;
 }
   ? keyof { [k in K as undefined extends TObj[k] ? never : k]: k }
@@ -9,7 +9,7 @@ export type RequirdKeysIn<TObj extends object> = TObj extends {
 export type RequiredKeysArray<TShape extends { [key: string]: Borg }> =
   TShape extends infer T extends { [key: string]: Borg }
     ? Array<
-        RequirdKeysIn<{
+        RequirdKeys<{
           [k in keyof T]: Type<T[k]>;
         }>
       >
@@ -26,17 +26,17 @@ type PrivateFlag = "public" | "private";
 export type Flags = [RequiredFlag, NullFlag, PrivateFlag];
 export type MinMax = [number | null, number | null];
 
-export type Parsed<TType, TOpts extends Flags> = [TOpts[0], TOpts[1]] extends [
-  infer TOptional extends Flags[0],
-  infer TNullable extends Flags[1],
-]
+export type Parsed<TType, TFlags extends Flags> = [
+  TFlags[0],
+  TFlags[1],
+] extends [infer TOptional extends Flags[0], infer TNullable extends Flags[1]]
   ?
       | TType
       | (TNullable extends "nullable" ? null : never)
       | (TOptional extends "optional" ? undefined : never)
   : never;
 
-export type Sanitized<TType, TOpts extends Flags> = TOpts extends [
+export type Sanitized<TType, TFlags extends Flags> = TFlags extends [
   infer TOptional extends Flags[0],
   infer TNullable extends Flags[1],
   infer TPublic extends Flags[2],
@@ -46,36 +46,36 @@ export type Sanitized<TType, TOpts extends Flags> = TOpts extends [
     : Parsed<TType, [TOptional, TNullable, "public"]>
   : never;
 
-export type MakeRequired<TOpts extends Flags> = UpdateOpts<
-  TOpts,
+export type SetRequired<TFlags extends Flags> = SetFLags<
+  TFlags,
   ["required", "", ""]
 >;
-export type MakeOptional<TOpts extends Flags> = UpdateOpts<
-  TOpts,
+export type SetOptional<TFlags extends Flags> = SetFLags<
+  TFlags,
   ["optional", "", ""]
 >;
-export type MakeNullable<TOpts extends Flags> = UpdateOpts<
-  TOpts,
+export type SetNullable<TFlags extends Flags> = SetFLags<
+  TFlags,
   ["", "nullable", ""]
 >;
-export type MakeNotNull<TOpts extends Flags> = UpdateOpts<
-  TOpts,
+export type SetNotNull<TFlags extends Flags> = SetFLags<
+  TFlags,
   ["", "notNull", ""]
 >;
-export type MakePublic<TOpts extends Flags> = UpdateOpts<
-  TOpts,
+export type SetPublic<TFlags extends Flags> = SetFLags<
+  TFlags,
   ["", "", "public"]
 >;
-export type MakePrivate<TOpts extends Flags> = UpdateOpts<
-  TOpts,
+export type SetPrivate<TFlags extends Flags> = SetFLags<
+  TFlags,
   ["", "", "private"]
 >;
-export type MakeNullish<TOpts extends Flags> = UpdateOpts<
-  TOpts,
+export type SetNullish<TFlags extends Flags> = SetFLags<
+  TFlags,
   ["optional", "nullable", ""]
 >;
-export type MakeNotNullish<TOpts extends Flags> = UpdateOpts<
-  TOpts,
+export type SetNotNullish<TFlags extends Flags> = SetFLags<
+  TFlags,
   ["required", "notNull", ""]
 >;
 
@@ -108,25 +108,25 @@ export type GetFlags<
     }
   : never;
 
-type OptionUpdate = [Flags[0] | "", Flags[1] | "", Flags[2] | ""];
-type UpdateOpts<TOpts extends Flags, TUpdate extends OptionUpdate> = [
-  TUpdate,
-  TOpts,
+type FlagOps = [Flags[0] | "", Flags[1] | "", Flags[2] | ""];
+type SetFLags<TFlags extends Flags, TOps extends FlagOps> = [
+  TOps,
+  TFlags,
 ] extends [
   [
-    infer TOn extends Flags[0] | "",
-    infer TNn extends Flags[1] | "",
-    infer TPn extends Flags[2] | "",
+    infer Op_0 extends Flags[0] | "",
+    infer Op_1 extends Flags[1] | "",
+    infer Op_2 extends Flags[2] | "",
   ],
   [
-    infer TOf extends Flags[0],
-    infer TNf extends Flags[1],
-    infer TPf extends Flags[2],
+    infer TFlag_0 extends Flags[0],
+    infer TFlag_1 extends Flags[1],
+    infer TFlag_2 extends Flags[2],
   ],
 ]
   ? [
-      TOn extends Flags[0] ? TOn : TOf,
-      TNn extends Flags[1] ? TNn : TNf,
-      TPn extends Flags[2] ? TPn : TPf,
+      Op_0 extends Flags[0] ? Op_0 : TFlag_0,
+      Op_1 extends Flags[1] ? Op_1 : TFlag_1,
+      Op_2 extends Flags[2] ? Op_2 : TFlag_2,
     ]
   : never;

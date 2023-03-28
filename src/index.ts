@@ -1,74 +1,9 @@
 import * as _ from "./types";
 import { Double, ObjectId } from "bson";
-
-/////////////////////////////////////////////////////////////////////////////////////////////
-///                                                                                       ///
-///  BBBBBBBBBBBBBBBBB    EEEEEEEEEEEEEEEEEEEE RRRRRRRRRRRRRRRRR    RRRRRRRRRRRRRRRRR     ///
-///  B////////////////B   E//////////////////E R////////////////R   R////////////////R    ///
-///  B/////////////////B  E//////////////////E R/////////////////R  R/////////////////R   ///
-///  B//////BBBBBB//////B E/////EEEEEEEEE////E R//////RRRRRRR/////R R//////RRRRRRR/////R  ///
-///  BB/////B     B/////B E/////E        EEEEE RR/////R      R////R RR/////R      R////R  ///
-///    B////B     B/////B E/////E                R////R      R////R   R////R      R////R  ///
-///    B////B     B/////B E/////E                R////R      R////R   R////R      R////R  ///
-///    B////BBBBBB/////B  E/////EEEEEEEEEE       R////RRRRRRR////R    R////RRRRRRR////R   ///
-///    B////////////BB    E//////////////E       R/////////////RR     R/////////////RR    ///
-///    B////BBBBBB/////B  E/////EEEEEEEEEE       R////RRRRRRR////R    R////RRRRRRR////R   ///
-///    B////B     B/////B E/////E                R////R      R////R   R////R      R////R  ///
-///    B////B     B/////B E/////E                R////R      R////R   R////R      R////R  ///
-///    B////B     B/////B E/////E        EEEEE   R////R      R////R   R////R      R////R  ///
-///  BB/////BBBBBB//////B E/////EEEEEEEEE////E RR/////R      R////R RR/////R      R////R  ///
-///  B/////////////////B  E//////////////////E R//////R      R////R R//////R      R////R  ///
-///  B////////////////B   E//////////////////E R//////R      R////R R//////R      R////R  ///
-///  BBBBBBBBBBBBBBBBB    EEEEEEEEEEEEEEEEEEEE RRRRRRRR      RRRRRR RRRRRRRR      RRRRRR  ///
-///                                                                                       ///
-/////////////////////////////////////////////////////////////////////////////////////////////
+import { BorgError } from "./errors";
 
 const isin = <T extends object>(obj: T, key: PropertyKey): key is keyof T =>
   key in obj;
-
-class BorgError<
-  const T extends BorgError | undefined = undefined,
-> extends Error {
-  #path: (string | number)[] = [];
-
-  constructor(message: string, cause?: T, path?: (string | number)[]) {
-    super(`${message}`);
-    this.#path = [...(path || []), ...(cause?.path || [])];
-    this.message = `${message} at "${this.#path.join(".") || "{ROOT}"}"${
-      cause?.message ? `: ${cause.message}` : ""
-    }`;
-    if (cause) {
-      this.stack = `${this.stack}\n\n### [CAUSED BY]:###\n\n${cause.stack}`;
-    }
-  }
-
-  get path() {
-    return this.#path;
-  }
-  /* c8 ignore next */
-}
-
-/////////////////////////////////////////////////////////////////////////////////////////////
-///                                                                                       ///
-///  BBBBBBBBBBBBBBBBB        OOOOOOOOOOOO     RRRRRRRRRRRRRRRRR        GGGGGGGGGGG       ///
-///  B////////////////B     OO////////////OO   R////////////////R     GG///////////GG     ///
-///  B/////////////////B   OO//////////////OO  R/////////////////R   GG/////////////GG    ///
-///  B//////BBBBBB//////B O///////OOO////////O R//////RRRRRRR/////R G/////GGGGGGG/////G   ///
-///  BB/////B     B/////B O//////O   O///////O RR/////R      R////R G////G       G////G   ///
-///    B////B     B/////B O/////O     O//////O   R////R      R////R G////G       GGGGGG   ///
-///    B////B     B/////B O/////O     O//////O   R////R      R////R G////G                ///
-///    B////BBBBBB/////B  O/////O     O//////O   R////RRRRRRR////R  G////G   GGGGGGGG     ///
-///    B////////////BB    O/////O     O//////O   R/////////////RR   G////G  GG///////GG   ///
-///    B////BBBBBB/////B  O/////O     O//////O   R////RRRRRRR////R  G////G  G/////////GG  ///
-///    B////B     B/////B O/////O     O//////O   R////R      R////R G////G  G////G/////G  ///
-///    B////B     B/////B O/////O     O//////O   R////R      R////R G////G   GGGG G////G  ///
-///    B////B     B/////B O//////O   O///////O   R////R      R////R G/////G      GG////G  ///
-///  BB/////BBBBBB//////B O///////OOO////////O RR/////R      R////R G//////GGGGGG//////G  ///
-///  B/////////////////B  OO///////////////OO  R//////R      R////R  GG////////////////G  ///
-///  B////////////////B    OO/////////////OO   R//////R      R////R    GG///////GG/////G  ///
-///  BBBBBBBBBBBBBBBBB       OOOOOOOOOOOOOO    RRRRRRRR      RRRRRR     GGGGGGGG  GGGGGG  ///
-///                                                                                       ///
-/////////////////////////////////////////////////////////////////////////////////////////////
 
 /////////////////////////////////////////////////////////////////////////////////////////////
 ///                                                                                       ///
@@ -93,13 +28,13 @@ class BorgError<
 /////////////////////////////////////////////////////////////////////////////////////////////
 
 class BorgObject<
-  const TOpts extends _.Flags = ["required", "notNull", "public"],
+  const TFlags extends _.Flags = ["required", "notNull", "public"],
   const TShape extends { [key: string]: _.Borg } = {
     [key: string]: _.Borg;
   },
 > extends _.Borg {
   #shape: TShape;
-  #opts = {
+  #flags = {
     optional: false,
     nullable: false,
     private: false,
@@ -118,11 +53,11 @@ class BorgObject<
     const newShape = {} as { [key: string]: _.Borg };
     for (const key in borg.#shape) newShape[key] = borg.#shape[key]!.copy();
     const clone = new BorgObject(newShape);
-    clone.#opts = { ...borg.#opts };
+    clone.#flags = { ...borg.#flags };
     return clone as any;
   }
 
-  get meta(): _.ObjectMeta<TOpts, TShape> {
+  get meta(): _.ObjectMeta<TFlags, TShape> {
     return Object.freeze({
       kind: "object",
       shape: this.#shape,
@@ -132,25 +67,16 @@ class BorgObject<
           k => this.#shape[k]!.meta.optional === false,
         ),
       ),
-      ...this.#opts,
+      ...this.#flags,
     }) as any;
   }
 
   get bsonSchema() {
-    return Object.freeze({
-      bsonType: this.#opts.nullable
-        ? Object.freeze(["object", "null"])
-        : "object",
-      required: Object.freeze([...this.meta.requiredKeys]),
-      properties: Object.freeze(
-        Object.fromEntries(
-          Object.entries(this.#shape).map(([key, value]) => [
-            key,
-            value.bsonSchema(),
-          ]),
-        ),
-      ),
-    }) as _.ObjectBsonSchema<TShape, TOpts>;
+    return _.getBsonSchema(this.meta);
+  }
+
+  is(input: unknown): input is ReturnType<this["parse"]> {
+    return this.try(input).ok;
   }
 
   copy(): this {
@@ -159,35 +85,35 @@ class BorgObject<
 
   parse(
     input: unknown,
-  ): _.Parsed<{ [k in keyof TShape]: B.Type<TShape[k]> }, TOpts> {
+  ): _.Parsed<{ [k in keyof TShape]: B.Type<TShape[k]> }, TFlags> {
     if (input === undefined) {
-      if (this.#opts.optional) return void 0 as any;
+      if (this.#flags.optional) return void 0 as any;
       throw new BorgError(
         `OBJECT_ERROR: Expected object${
-          this.#opts.nullable ? " or null" : ""
+          this.#flags.nullable ? " or null" : ""
         }, got undefined`,
       );
     }
     if (input === null) {
-      if (this.#opts.nullable) return null as any;
+      if (this.#flags.nullable) return null as any;
       throw new BorgError(
         `OBJECT_ERROR: Expected object${
-          this.#opts.optional ? " or undefined" : ""
+          this.#flags.optional ? " or undefined" : ""
         }, got null`,
       );
     }
     if (typeof input !== "object") {
       throw new BorgError(
         `OBJECT_ERROR: Expected object,${
-          this.#opts.optional ? " or undefined," : ""
-        }${this.#opts.nullable ? " or null," : ""} got ${typeof input}`,
+          this.#flags.optional ? " or undefined," : ""
+        }${this.#flags.nullable ? " or null," : ""} got ${typeof input}`,
       );
     }
     if (Array.isArray(input)) {
       throw new BorgError(
         `OBJECT_ERROR: Expected object,${
-          this.#opts.optional ? " or undefined," : ""
-        }${this.#opts.nullable ? " or null," : ""} got array`,
+          this.#flags.optional ? " or undefined," : ""
+        }${this.#flags.nullable ? " or null," : ""} got array`,
       );
     }
     const result = {} as any;
@@ -237,10 +163,35 @@ class BorgObject<
     return result;
   }
 
+  try(
+    input: unknown,
+  ): _.TryResult<_.Type<this>, this["meta"], _.Serialized<this>> {
+    try {
+      const value = this.parse(input) as any;
+      return {
+        value,
+        ok: true,
+        meta: this.meta,
+        serialize: () => this.serialize.call(this, value),
+      } as any;
+    } catch (e) {
+      if (e instanceof BorgError) return { ok: false, error: e } as any;
+      else
+        return {
+          ok: false,
+          error: new BorgError(
+            `OBJECT_ERROR(try): Unknown error parsing: \n\t${JSON.stringify(
+              e,
+            )}`,
+          ),
+        } as any;
+    }
+  }
+
   serialize(
     input: B.Type<this>,
-  ): _.Sanitized<{ [k in keyof TShape]: B.Serialized<TShape[k]> }, TOpts> {
-    if (this.#opts.private) {
+  ): _.Sanitized<{ [k in keyof TShape]: B.Serialized<TShape[k]> }, TFlags> {
+    if (this.#flags.private) {
       throw new BorgError(
         "OBJECT_ERROR(serialize): Cannot serialize private schema",
       );
@@ -261,10 +212,11 @@ class BorgObject<
     }
     return result;
   }
+  //TODO: Fix deserialization & deserialization implementations
 
   deserialize(
     input: B.Serialized<this>,
-  ): _.Sanitized<{ [k in keyof TShape]: B.Deserialized<TShape[k]> }, TOpts> {
+  ): _.Sanitized<{ [k in keyof TShape]: B.Deserialized<TShape[k]> }, TFlags> {
     if (input === null || input === undefined) return input as any;
     const result = {} as any;
     for (const key in this.#shape) {
@@ -282,7 +234,11 @@ class BorgObject<
     return result;
   }
   //TODO: Should we be treating 'undefined' in any special way when converting to BSON?
-  toBson<const TInput extends Partial<B.Type<this>> = B.Type<this>>(
+  toBson<
+    const TInput extends Partial<
+      _.Parsed<{ [k in keyof TShape]: B.Type<TShape[k]> }, TFlags>
+    > = Partial<_.Parsed<{ [k in keyof TShape]: B.Type<TShape[k]> }, TFlags>>,
+  >(
     input: TInput,
   ): {
     [k in keyof TShape as keyof TInput]: k extends keyof TInput
@@ -308,7 +264,9 @@ class BorgObject<
     return result;
   }
 
-  fromBson(input: B.BsonType<this>): B.Type<this> {
+  fromBson(
+    input: B.BsonType<BorgObject<TFlags, TShape>>,
+  ): _.Parsed<{ [k in keyof TShape]: B.Type<TShape[k]> }, TFlags> {
     if (input === null || input === undefined) return input as any;
     const result = {} as any;
     for (const key in this.#shape) {
@@ -326,53 +284,53 @@ class BorgObject<
     return result;
   }
 
-  optional(): BorgObject<_.MakeOptional<TOpts>, TShape> {
+  optional(): BorgObject<_.SetOptional<TFlags>, TShape> {
     const copy = this.copy();
-    copy.#opts.optional = true;
+    copy.#flags.optional = true;
     return copy as any;
   }
 
-  nullable(): BorgObject<_.MakeNullable<TOpts>, TShape> {
+  nullable(): BorgObject<_.SetNullable<TFlags>, TShape> {
     const clone = this.copy();
-    clone.#opts.nullable = true;
+    clone.#flags.nullable = true;
     return clone as any;
   }
 
-  nullish(): BorgObject<_.MakeNullish<TOpts>, TShape> {
+  nullish(): BorgObject<_.SetNullish<TFlags>, TShape> {
     const clone = this.copy();
-    clone.#opts.optional = true;
-    clone.#opts.nullable = true;
+    clone.#flags.optional = true;
+    clone.#flags.nullable = true;
     return clone as any;
   }
 
-  required(): BorgObject<_.MakeRequired<TOpts>, TShape> {
+  required(): BorgObject<_.SetRequired<TFlags>, TShape> {
     const clone = this.copy();
-    clone.#opts.optional = false;
+    clone.#flags.optional = false;
     return clone as any;
   }
 
-  notNull(): BorgObject<_.MakeNotNull<TOpts>, TShape> {
+  notNull(): BorgObject<_.SetNotNull<TFlags>, TShape> {
     const clone = this.copy();
-    clone.#opts.nullable = false;
+    clone.#flags.nullable = false;
     return clone as any;
   }
 
-  notNullish(): BorgObject<_.MakeNotNullish<TOpts>, TShape> {
+  notNullish(): BorgObject<_.SetNotNullish<TFlags>, TShape> {
     const clone = this.copy();
-    clone.#opts.optional = false;
-    clone.#opts.nullable = false;
+    clone.#flags.optional = false;
+    clone.#flags.nullable = false;
     return clone as any;
   }
 
-  private(): BorgObject<_.MakePrivate<TOpts>, TShape> {
+  private(): BorgObject<_.SetPrivate<TFlags>, TShape> {
     const clone = this.copy();
-    clone.#opts.private = true;
+    clone.#flags.private = true;
     return clone as any;
   }
 
-  public(): BorgObject<_.MakePublic<TOpts>, TShape> {
+  public(): BorgObject<_.SetPublic<TFlags>, TShape> {
     const clone = this.copy();
-    clone.#opts.private = false;
+    clone.#flags.private = false;
     return clone as any;
   }
 
@@ -402,15 +360,15 @@ class BorgObject<
 /////////////////////////////////////////////////////////////////////////////////////////////
 
 class BorgArray<
-  const TOpts extends _.Flags = ["required", "notNull", "public"],
+  const TFlags extends _.Flags = ["required", "notNull", "public"],
   const TLength extends _.MinMax = [null, null],
   const TItemSchema extends _.Borg = _.Borg,
 > extends _.Borg {
   #itemSchema: TItemSchema;
-  #opts = {
+  #flags = {
     optional: false,
     nullable: false,
-    private: false, 
+    private: false,
   };
   #max: TLength[1] = null;
   #min: TLength[0] = null;
@@ -420,63 +378,60 @@ class BorgArray<
     this.#itemSchema = itemSchema.copy() as any;
   }
 
-  static #clone<const TBorg extends B.Array<any, _.Borg, any>>(
+  static #clone<const TBorg extends B.Array<any, any, any>>(
     borg: TBorg,
   ): TBorg {
     const clone = new BorgArray(borg.#itemSchema.copy());
-    clone.#opts = { ...borg.#opts };
+    clone.#flags = { ...borg.#flags };
     clone.#max = borg.#max;
     clone.#min = borg.#min;
     return clone as any;
   }
 
-  get meta(): _.ArrayMeta<TItemSchema, TOpts, TLength> {
+  get meta(): _.ArrayMeta<TFlags, TLength, TItemSchema> {
     return Object.freeze({
       kind: "array",
       maxItems: this.#max,
       minItems: this.#min,
       itemSchema: this.#itemSchema,
-      ...this.#opts,
+      ...this.#flags,
     }) as any;
   }
 
   get bsonSchema() {
-    return Object.freeze({
-      bsonType: this.#opts.nullable
-        ? Object.freeze(["array", "null"])
-        : "array",
-      items: this.#itemSchema.bsonSchema(),
-      ...(this.#max !== null && { maxItems: this.#max }),
-      ...(this.#min !== null && { minItems: this.#min }),
-    }) as _.ArrayBsonSchema<TItemSchema, TOpts, TLength>;
+    return _.getBsonSchema(this.meta);
+  }
+
+  is(input: unknown): input is ReturnType<this["parse"]> {
+    return this.try(input).ok;
   }
 
   copy(): this {
     return BorgArray.#clone(this);
   }
 
-  parse(input: unknown): _.Parsed<Array<B.Type<TItemSchema>>, TOpts> {
+  parse(input: unknown): _.Parsed<Array<B.Type<TItemSchema>>, TFlags> {
     if (input === undefined) {
-      if (this.#opts.optional) return void 0 as any;
+      if (this.#flags.optional) return void 0 as any;
       throw new BorgError(
         `ARRAY_ERROR: Expected array${
-          this.#opts.nullable ? " or null" : ""
+          this.#flags.nullable ? " or null" : ""
         }, got undefined`,
       );
     }
     if (input === null) {
-      if (this.#opts.nullable) return null as any;
+      if (this.#flags.nullable) return null as any;
       throw new BorgError(
         `ARRAY_ERROR: Expected array${
-          this.#opts.optional ? " or undefined" : ""
+          this.#flags.optional ? " or undefined" : ""
         }, got null`,
       );
     }
     if (!Array.isArray(input)) {
       throw new BorgError(
         `ARRAY_ERROR: Expected array,${
-          this.#opts.optional ? " or undefined," : ""
-        }${this.#opts.nullable ? " or null," : ""} got ${typeof input}`,
+          this.#flags.optional ? " or undefined," : ""
+        }${this.#flags.nullable ? " or null," : ""} got ${typeof input}`,
       );
     }
     if (this.#min !== null && input.length < this.#min) {
@@ -518,10 +473,33 @@ class BorgArray<
     return result;
   }
 
+  try(
+    input: unknown,
+  ): _.TryResult<_.Type<this>, this["meta"], _.Serialized<this>> {
+    try {
+      const value = this.parse(input) as any;
+      return {
+        value,
+        ok: true,
+        meta: this.meta,
+        serialize: () => this.serialize.call(this, value),
+      } as any;
+    } catch (e) {
+      if (e instanceof BorgError) return { ok: false, error: e } as any;
+      else
+        return {
+          ok: false,
+          error: new BorgError(
+            `ARRAY_ERROR(try): Unknown error parsing: \n\t${JSON.stringify(e)}`,
+          ),
+        } as any;
+    }
+  }
+
   serialize(
     input: B.Type<this>,
-  ): _.Sanitized<Array<B.Serialized<TItemSchema>>, TOpts> {
-    if (this.#opts.private) {
+  ): _.Sanitized<Array<B.Serialized<TItemSchema>>, TFlags> {
+    if (this.#flags.private) {
       throw new BorgError(
         "ARRAY_ERROR(serialize): Cannot serialize private schema",
       );
@@ -536,7 +514,7 @@ class BorgArray<
 
   deserialize(
     input: B.Serialized<this>,
-  ): _.Sanitized<Array<B.Deserialized<TItemSchema>>, TOpts> {
+  ): _.Sanitized<Array<B.Deserialized<TItemSchema>>, TFlags> {
     if (input === null || input === undefined) return input as any;
     const result = new Array(input.length) as any;
     for (let i = 0; i < input.length; i++) {
@@ -545,7 +523,9 @@ class BorgArray<
     return result;
   }
 
-  toBson(input: B.Type<this>): Array<B.BsonType<TItemSchema>> {
+  toBson(
+    input: _.Parsed<Array<B.Type<TItemSchema>>, TFlags>,
+  ): Array<B.BsonType<TItemSchema>> {
     if (input === null || input === undefined) return input as any;
     const result = new Array(input.length) as any;
     for (let i = 0; i < input.length; i++) {
@@ -554,7 +534,9 @@ class BorgArray<
     return result;
   }
 
-  fromBson(input: B.BsonType<this>): B.Type<this> {
+  fromBson(
+    input: B.BsonType<BorgArray<TFlags, TLength, TItemSchema>>,
+  ): _.Parsed<Array<B.Type<TItemSchema>>, TFlags> {
     if (input === null || input === undefined) return input as any;
     const result = new Array(input.length) as any;
     for (let i = 0; i < input.length; i++) {
@@ -563,67 +545,67 @@ class BorgArray<
     return result;
   }
 
-  optional(): BorgArray<_.MakeOptional<TOpts>, TLength, TItemSchema> {
+  optional(): BorgArray<_.SetOptional<TFlags>, TLength, TItemSchema> {
     const clone = this.copy();
-    clone.#opts.optional = true;
+    clone.#flags.optional = true;
     return clone as any;
   }
 
-  nullable(): BorgArray<_.MakeNullable<TOpts>, TLength, TItemSchema> {
+  nullable(): BorgArray<_.SetNullable<TFlags>, TLength, TItemSchema> {
     const clone = this.copy();
-    clone.#opts.nullable = true;
+    clone.#flags.nullable = true;
     return clone as any;
   }
 
-  nullish(): BorgArray<_.MakeNullish<TOpts>, TLength, TItemSchema> {
+  nullish(): BorgArray<_.SetNullish<TFlags>, TLength, TItemSchema> {
     const clone = this.copy();
-    clone.#opts.nullable = true;
-    clone.#opts.optional = true;
+    clone.#flags.nullable = true;
+    clone.#flags.optional = true;
     return clone as any;
   }
 
-  required(): BorgArray<_.MakeRequired<TOpts>, TLength, TItemSchema> {
+  required(): BorgArray<_.SetRequired<TFlags>, TLength, TItemSchema> {
     const clone = this.copy();
-    clone.#opts.optional = false;
+    clone.#flags.optional = false;
     return clone as any;
   }
 
-  notNull(): BorgArray<_.MakeNotNull<TOpts>, TLength, TItemSchema> {
+  notNull(): BorgArray<_.SetNotNull<TFlags>, TLength, TItemSchema> {
     const clone = this.copy();
-    clone.#opts.nullable = false;
+    clone.#flags.nullable = false;
     return clone as any;
   }
 
-  notNullish(): BorgArray<_.MakeNotNullish<TOpts>, TLength, TItemSchema> {
+  notNullish(): BorgArray<_.SetNotNullish<TFlags>, TLength, TItemSchema> {
     const clone = this.copy();
-    clone.#opts.nullable = false;
-    clone.#opts.optional = false;
+    clone.#flags.nullable = false;
+    clone.#flags.optional = false;
     return clone as any;
   }
 
-  private(): BorgArray<_.MakePrivate<TOpts>, TLength, TItemSchema> {
+  private(): BorgArray<_.SetPrivate<TFlags>, TLength, TItemSchema> {
     const clone = this.copy();
-    clone.#opts.private = true;
+    clone.#flags.private = true;
     return clone as any;
   }
 
-  public(): BorgArray<_.MakePublic<TOpts>, TLength, TItemSchema> {
+  public(): BorgArray<_.SetPublic<TFlags>, TLength, TItemSchema> {
     const clone = this.copy();
-    clone.#opts.private = false;
+    clone.#flags.private = false;
     return clone as any;
   }
 
-  minLength<const N extends number>(
-    length: N,
-  ): BorgArray<TOpts, [N, TLength[1]], TItemSchema> {
+  minLength<const Min extends number>(
+    length: Min,
+  ): BorgArray<TFlags, [Min, TLength[1]], TItemSchema> {
     const clone = this.copy();
     clone.#min = length;
     return clone as any;
   }
 
-  maxLength<const N extends number>(
-    length: N,
-  ): BorgArray<TOpts, [TLength[0], N], TItemSchema> {
+  maxLength<const Max extends number>(
+    length: Max,
+  ): BorgArray<TFlags, [TLength[0], Max], TItemSchema> {
     const clone = this.copy();
     clone.#max = length;
     return clone as any;
@@ -637,14 +619,16 @@ type A2 = typeof A //--> Array<string & { length: 1 }> & { length: 3 }
 --OR--
 type A2 = typeof A //--> [string & { length: 1 }, string & { length: 1 }, string & { length: 1 }]
 */
-  length<const N extends number>(length: N): BorgArray<TOpts, [N, N], TItemSchema>;
+  length<const N extends number | null>(
+    length: N,
+  ): BorgArray<TFlags, [N, N], TItemSchema>;
   length<const Min extends number, const Max extends number = Min>(
     minLength: Min,
     maxLength?: Max,
-  ): BorgArray<TOpts, [Min, Max], TItemSchema> {
+  ): BorgArray<TFlags, [Min, Max], TItemSchema> {
     const clone = this.copy();
     clone.#min = minLength;
-    clone.#max = maxLength ?? minLength;
+    clone.#max = maxLength === undefined ? minLength : maxLength;
     return clone as any;
   }
 
@@ -674,18 +658,18 @@ type A2 = typeof A //--> [string & { length: 1 }, string & { length: 1 }, string
 /////////////////////////////////////////////////////////////////////////////////////////////
 
 class BorgString<
-  const TOpts extends _.Flags = ["required", "notNull", "public"],
+  const TFlags extends _.Flags = ["required", "notNull", "public"],
   const TLength extends _.MinMax = [null, null],
   const TPattern extends string = ".*",
 > extends _.Borg {
-  #opts = {
+  #flags = {
     optional: false,
     nullable: false,
     private: false,
   };
   #min: TLength[0] = null;
   #max: TLength[1] = null;
-  #regex: RegExp | undefined = undefined;
+  #pattern: TPattern | null = null;
 
   constructor() {
     super();
@@ -695,61 +679,60 @@ class BorgString<
     borg: TBorg,
   ): TBorg {
     const clone = new BorgString();
-    clone.#opts = { ...borg.#opts };
+    clone.#flags = { ...borg.#flags };
     clone.#min = borg.#min;
     clone.#max = borg.#max;
-    clone.#regex = borg.#regex ? new RegExp(borg.#regex) : undefined;
+    clone.#pattern = borg.#pattern;
     return clone as any;
   }
 
-  get meta(): _.StringMeta<TOpts, TLength, TPattern> {
+  get meta(): _.StringMeta<TFlags, TLength, TPattern> {
     return Object.freeze({
-      ...this.#opts,
+      ...this.#flags,
       kind: "string",
       maxLength: this.#max,
       minLength: this.#min,
-      pattern: this.#regex?.source,
-      regex: this.#regex ? Object.freeze(new RegExp(this.#regex)) : undefined,
+      pattern: this.#pattern,
+      regex: this.#pattern
+        ? Object.freeze(new RegExp(this.#pattern))
+        : undefined,
     }) as any;
   }
 
   get bsonSchema() {
-    return Object.freeze({
-      bsonType: this.#opts.nullable
-        ? Object.freeze(["string", "null"])
-        : "string",
-      ...(this.#min !== null ? { minLength: this.#min } : {}),
-      ...(this.#max !== null ? { maxLength: this.#max } : {}),
-      ...(this.#regex ? { pattern: this.#regex.source } : {}),
-    }) as _.StringBsonSchema<TOpts, TLength, TPattern>;
+    return _.getBsonSchema(this.meta);
+  }
+
+  is(input: unknown): input is ReturnType<this["parse"]> {
+    return this.try(input).ok;
   }
 
   copy(): this {
     return BorgString.#clone(this);
   }
 
-  parse(input: unknown): _.Parsed<string, TOpts> {
+  parse(input: unknown): _.Parsed<string, TFlags> {
     if (input === undefined) {
-      if (this.#opts.optional) return void 0 as any;
+      if (this.#flags.optional) return void 0 as any;
       throw new BorgError(
         `STRING_ERROR: Expected string${
-          this.#opts.nullable ? " or null" : ""
+          this.#flags.nullable ? " or null" : ""
         }, got undefined`,
       );
     }
     if (input === null) {
-      if (this.#opts.nullable) return null as any;
+      if (this.#flags.nullable) return null as any;
       throw new BorgError(
         `STRING_ERROR: Expected string${
-          this.#opts.optional ? " or undefined" : ""
+          this.#flags.optional ? " or undefined" : ""
         }, got null`,
       );
     }
     if (typeof input !== "string") {
       throw new BorgError(
         `STRING_ERROR: Expected string,${
-          this.#opts.optional ? " or undefined," : ""
-        }${this.#opts.nullable ? " or null," : ""} got ${typeof input}`,
+          this.#flags.optional ? " or undefined," : ""
+        }${this.#flags.nullable ? " or null," : ""} got ${typeof input}`,
       );
     }
     if (this.#min !== null && input.length < this.#min) {
@@ -766,18 +749,42 @@ class BorgString<
         }, got ${input.length}`,
       );
     }
-    if (this.#regex !== undefined && !this.#regex.test(input)) {
+    if (this.#pattern !== null && !new RegExp(this.#pattern, "u").test(input)) {
       throw new BorgError(
         `STRING_ERROR: Expected string to match pattern ${
-          this.#regex.source
+          this.#pattern
         }, got ${input}`,
       );
     }
     return input as any;
   }
+  try(
+    input: unknown,
+  ): _.TryResult<_.Type<this>, this["meta"], _.Serialized<this>> {
+    try {
+      const value = this.parse(input) as any;
+      return {
+        value,
+        ok: true,
+        meta: this.meta,
+        serialize: () => this.serialize.call(this, value),
+      } as any;
+    } catch (e) {
+      if (e instanceof BorgError) return { ok: false, error: e } as any;
+      else
+        return {
+          ok: false,
+          error: new BorgError(
+            `STRING_ERROR(try): Unknown error parsing: \n\t${JSON.stringify(
+              e,
+            )}`,
+          ),
+        } as any;
+    }
+  }
 
-  serialize(input: B.Type<this>): _.Sanitized<B.Type<this>, TOpts> {
-    if (this.#opts.private) {
+  serialize(input: B.Type<this>): _.Sanitized<B.Type<this>, TFlags> {
+    if (this.#flags.private) {
       throw new BorgError(
         `STRING_ERROR: Cannot serialize private string field ${input}`,
       );
@@ -785,92 +792,94 @@ class BorgString<
     return input as any;
   }
 
-  deserialize(input: B.Serialized<this>): _.Sanitized<B.Type<this>, TOpts> {
+  deserialize(input: B.Serialized<this>): _.Sanitized<B.Type<this>, TFlags> {
     return input as any;
   }
 
-  toBson(input: B.Type<this>) {
+  toBson(input: _.Parsed<string, TFlags>) {
     return input;
   }
 
-  fromBson(input: B.BsonType<this>) {
+  fromBson(input: B.BsonType<BorgString<TFlags, TLength, TPattern>>) {
     return input;
   }
 
-  optional(): BorgString<_.MakeOptional<TOpts>, TLength, TPattern> {
+  optional(): BorgString<_.SetOptional<TFlags>, TLength, TPattern> {
     const clone = this.copy();
-    clone.#opts.optional = true;
+    clone.#flags.optional = true;
     return clone as any;
   }
 
-  nullable(): BorgString<_.MakeNullable<TOpts>, TLength, TPattern> {
+  nullable(): BorgString<_.SetNullable<TFlags>, TLength, TPattern> {
     const clone = this.copy();
-    clone.#opts.nullable = true;
+    clone.#flags.nullable = true;
     return clone as any;
   }
 
-  nullish(): BorgString<_.MakeNullish<TOpts>, TLength, TPattern> {
+  nullish(): BorgString<_.SetNullish<TFlags>, TLength, TPattern> {
     const clone = this.copy();
-    clone.#opts.optional = true;
-    clone.#opts.nullable = true;
+    clone.#flags.optional = true;
+    clone.#flags.nullable = true;
     return clone as any;
   }
 
-  required(): BorgString<_.MakeRequired<TOpts>, TLength, TPattern> {
+  required(): BorgString<_.SetRequired<TFlags>, TLength, TPattern> {
     const clone = this.copy();
-    clone.#opts.optional = false;
+    clone.#flags.optional = false;
     return clone as any;
   }
 
-  notNull(): BorgString<_.MakeNotNull<TOpts>, TLength, TPattern> {
+  notNull(): BorgString<_.SetNotNull<TFlags>, TLength, TPattern> {
     const clone = this.copy();
-    clone.#opts.nullable = false;
+    clone.#flags.nullable = false;
     return clone as any;
   }
 
-  notNullish(): BorgString<_.MakeNotNullish<TOpts>, TLength, TPattern> {
+  notNullish(): BorgString<_.SetNotNullish<TFlags>, TLength, TPattern> {
     const clone = this.copy();
-    clone.#opts.optional = false;
-    clone.#opts.nullable = false;
+    clone.#flags.optional = false;
+    clone.#flags.nullable = false;
     return clone as any;
   }
 
-  private(): BorgString<_.MakePrivate<TOpts>, TLength, TPattern> {
+  private(): BorgString<_.SetPrivate<TFlags>, TLength, TPattern> {
     const clone = this.copy();
-    clone.#opts.private = true;
+    clone.#flags.private = true;
     return clone as any;
   }
 
-  public(): BorgString<_.MakePublic<TOpts>, TLength, TPattern> {
+  public(): BorgString<_.SetPublic<TFlags>, TLength, TPattern> {
     const clone = this.copy();
-    clone.#opts.private = false;
+    clone.#flags.private = false;
     return clone as any;
   }
 
-  minLength<const N extends number>(
-    length: N,
-  ): BorgString<TOpts, [N, TLength[1]], TPattern> {
+  minLength<const Min extends number | null>(
+    length: Min,
+  ): BorgString<TFlags, [Min, TLength[1]], TPattern> {
     const clone = this.copy();
     clone.#min = length;
     return clone as any;
   }
 
-  maxLength<const N extends number>(
-    length: N,
-  ): BorgString<TOpts, [TLength[0], N], TPattern> {
+  maxLength<const Max extends number | null>(
+    length: Max,
+  ): BorgString<TFlags, [TLength[0], Max], TPattern> {
     const clone = this.copy();
     clone.#max = length;
     return clone as any;
   }
 
-  length<const N extends number>(length: N): BorgString<TOpts, [N, N]>;
-  length<const Min extends number, const Max extends number = Min>(
-    minLength: Min,
-    maxLength?: Max,
-  ): BorgString<TOpts, [Min, Max]> {
+  length<const N extends number | null>(
+    length: N,
+  ): BorgString<TFlags, [N, N], TPattern>;
+  length<
+    const Min extends number | null,
+    const Max extends number | null = Min,
+  >(minLength: Min, maxLength?: Max): BorgString<TFlags, [Min, Max], TPattern> {
     const clone = this.copy();
     clone.#min = minLength;
-    clone.#max = maxLength ?? minLength;
+    clone.#max = maxLength === undefined ? minLength : maxLength;
     return clone as any;
   }
 
@@ -878,9 +887,11 @@ class BorgString<
    * @IMPORTANT RegExp flags are not supported, except for the "u" flag which is always set.
    * @param pattern a string that will be used as the source for a new RegExp
    */
-  pattern<const S extends string>(pattern: S): BorgString<TOpts, TLength, S> {
+  pattern<const S extends string | null>(
+    pattern: S,
+  ): BorgString<TFlags, TLength, S extends null ? ".*" : S> {
     const clone = this.copy();
-    clone.#regex = new RegExp(pattern, "u");
+    clone.#pattern = pattern as any;
     return clone as any;
   }
 
@@ -910,16 +921,16 @@ class BorgString<
 /////////////////////////////////////////////////////////////////////////////////////////////
 
 class BorgNumber<
-  const TOpts extends _.Flags = ["required", "notNull", "public"],
-  const TLength extends _.MinMax = [null, null],
+  const TFlags extends _.Flags = ["required", "notNull", "public"],
+  const TRange extends _.MinMax = [null, null],
 > extends _.Borg {
-  #opts = {
+  #flags = {
     optional: false,
     nullable: false,
     private: false,
   };
-  #min: TLength[0] = null;
-  #max: TLength[1] = null;
+  #min: TRange[0] = null;
+  #max: TRange[1] = null;
 
   constructor() {
     super();
@@ -927,57 +938,55 @@ class BorgNumber<
 
   static #clone<const TBorg extends B.Number<any, any>>(borg: TBorg): TBorg {
     const clone = new BorgNumber();
-    clone.#opts = { ...borg.#opts };
+    clone.#flags = { ...borg.#flags };
     clone.#min = borg.#min;
     clone.#max = borg.#max;
     return clone as any;
   }
 
-  get meta(): _.NumberMeta<TOpts, TLength> {
+  get meta(): _.NumberMeta<TFlags, TRange> {
     return Object.freeze({
       kind: "number",
       max: this.#max,
       min: this.#min,
-      ...this.#opts,
+      ...this.#flags,
     }) as any;
   }
 
   get bsonSchema() {
-    return Object.freeze({
-      bsonType: this.#opts.nullable
-        ? Object.freeze(["double", "null"])
-        : "double",
-      ...(this.#min !== null && { minimum: this.#min }),
-      ...(this.#max !== null && { maximum: this.#max }),
-    }) as _.NumberBsonSchema<TOpts, TLength>;
+    return _.getBsonSchema(this.meta);
+  }
+
+  is(input: unknown): input is ReturnType<this["parse"]> {
+    return this.try(input).ok;
   }
 
   copy(): this {
     return BorgNumber.#clone(this);
   }
 
-  parse(input: unknown): _.Parsed<number, TOpts> {
+  parse(input: unknown): _.Parsed<number, TFlags> {
     if (input === undefined) {
-      if (this.#opts.optional) return void 0 as any;
+      if (this.#flags.optional) return void 0 as any;
       throw new BorgError(
         `NUMBER_ERROR: Expected number${
-          this.#opts.nullable ? " or null" : ""
+          this.#flags.nullable ? " or null" : ""
         }, got undefined`,
       );
     }
     if (input === null) {
-      if (this.#opts.nullable) return null as any;
+      if (this.#flags.nullable) return null as any;
       throw new BorgError(
         `NUMBER_ERROR: Expected number${
-          this.#opts.optional ? " or undefined" : ""
+          this.#flags.optional ? " or undefined" : ""
         }, got null`,
       );
     }
     if (typeof input !== "number") {
       throw new BorgError(
         `NUMBER_ERROR: Expected number,${
-          this.#opts.optional ? " or undefined," : ""
-        }${this.#opts.nullable ? " or null," : ""} got ${typeof input}`,
+          this.#flags.optional ? " or undefined," : ""
+        }${this.#flags.nullable ? " or null," : ""} got ${typeof input}`,
       );
     }
     if (this.#min !== null && input < this.#min) {
@@ -997,8 +1006,33 @@ class BorgNumber<
     return input as any;
   }
 
-  serialize(input: B.Type<this>): _.Sanitized<B.Type<this>, TOpts> {
-    if (this.#opts.private) {
+  try(
+    input: unknown,
+  ): _.TryResult<_.Type<this>, this["meta"], _.Serialized<this>> {
+    try {
+      const value = this.parse(input) as any;
+      return {
+        value,
+        ok: true,
+        meta: this.meta,
+        serialize: () => this.serialize.call(this, value),
+      } as any;
+    } catch (e) {
+      if (e instanceof BorgError) return { ok: false, error: e } as any;
+      else
+        return {
+          ok: false,
+          error: new BorgError(
+            `NUMBER_ERROR(try): Unknown error parsing: \n\t${JSON.stringify(
+              e,
+            )}`,
+          ),
+        } as any;
+    }
+  }
+
+  serialize(input: B.Type<this>): _.Sanitized<B.Type<this>, TFlags> {
+    if (this.#flags.private) {
       throw new BorgError(
         `NUMBER_ERROR: Cannot serialize private number field ${input}`,
       );
@@ -1006,65 +1040,67 @@ class BorgNumber<
     return input as any;
   }
 
-  deserialize(input: B.Serialized<this>): _.Sanitized<B.Type<this>, TOpts> {
+  deserialize(input: B.Serialized<this>): _.Sanitized<B.Type<this>, TFlags> {
     return input as any;
   }
 
-  toBson(input: B.Type<this>): _.Parsed<Double, TOpts> {
+  toBson(input: _.Parsed<number, TFlags>): _.Parsed<Double, TFlags> {
     return typeof input === "number" ? new Double(input) : (input as any);
   }
 
-  fromBson(input: B.BsonType<this>): B.Type<this> {
+  fromBson(
+    input: B.BsonType<BorgNumber<TFlags, TRange>>,
+  ): _.Parsed<number, TFlags> {
     return (input && "valueOf" in input ? input.valueOf() : input) as any;
   }
 
-  optional(): BorgNumber<_.MakeOptional<TOpts>, TLength> {
+  optional(): BorgNumber<_.SetOptional<TFlags>, TRange> {
     const clone = this.copy();
-    clone.#opts.optional = true;
+    clone.#flags.optional = true;
     return clone as any;
   }
 
-  nullable(): BorgNumber<_.MakeNullable<TOpts>, TLength> {
+  nullable(): BorgNumber<_.SetNullable<TFlags>, TRange> {
     const clone = this.copy();
-    clone.#opts.nullable = true;
+    clone.#flags.nullable = true;
     return clone as any;
   }
 
-  nullish(): BorgNumber<_.MakeNullish<TOpts>, TLength> {
+  nullish(): BorgNumber<_.SetNullish<TFlags>, TRange> {
     const clone = this.copy();
-    clone.#opts.optional = true;
-    clone.#opts.nullable = true;
+    clone.#flags.optional = true;
+    clone.#flags.nullable = true;
     return clone as any;
   }
 
-  required(): BorgNumber<_.MakeRequired<TOpts>, TLength> {
+  required(): BorgNumber<_.SetRequired<TFlags>, TRange> {
     const clone = this.copy();
-    clone.#opts.optional = false;
+    clone.#flags.optional = false;
     return clone as any;
   }
 
-  notNull(): BorgNumber<_.MakeNotNull<TOpts>, TLength> {
+  notNull(): BorgNumber<_.SetNotNull<TFlags>, TRange> {
     const clone = this.copy();
-    clone.#opts.nullable = false;
+    clone.#flags.nullable = false;
     return clone as any;
   }
 
-  notNullish(): BorgNumber<_.MakeNotNullish<TOpts>, TLength> {
+  notNullish(): BorgNumber<_.SetNotNullish<TFlags>, TRange> {
     const clone = this.copy();
-    clone.#opts.optional = false;
-    clone.#opts.nullable = false;
+    clone.#flags.optional = false;
+    clone.#flags.nullable = false;
     return clone as any;
   }
 
-  private(): BorgNumber<_.MakePrivate<TOpts>, TLength> {
+  private(): BorgNumber<_.SetPrivate<TFlags>, TRange> {
     const clone = this.copy();
-    clone.#opts.private = true;
+    clone.#flags.private = true;
     return clone as any;
   }
 
-  public(): BorgNumber<_.MakePublic<TOpts>, TLength> {
+  public(): BorgNumber<_.SetPublic<TFlags>, TRange> {
     const clone = this.copy();
-    clone.#opts.private = false;
+    clone.#flags.private = false;
     return clone as any;
   }
   /*TODO:
@@ -1072,13 +1108,17 @@ class BorgNumber<
   remove max. If min is set, and max is then set to a value less than
   min, remove min.
   */
-  min<const N extends number>(min: N): BorgNumber<TOpts, [N, TLength[1]]> {
+  min<const Min extends number | null>(
+    min: Min,
+  ): BorgNumber<TFlags, [Min, TRange[1]]> {
     const clone = this.copy();
     clone.#min = min;
     return clone as any;
   }
 
-  max<const N extends number>(max: N): BorgNumber<TOpts, [TLength[0], N]> {
+  max<const Max extends number | null>(
+    max: Max,
+  ): BorgNumber<TFlags, [TRange[0], Max]> {
     const clone = this.copy();
     clone.#max = max;
     return clone as any;
@@ -1086,10 +1126,10 @@ class BorgNumber<
   /**
    * Inclusive range
    */
-  range<const N extends number, const M extends number>(
-    min: N,
-    max: M,
-  ): BorgNumber<TOpts, [N, M]> {
+  range<const Min extends number | null, const Max extends number | null>(
+    min: Min,
+    max: Max,
+  ): BorgNumber<TFlags, [Min, Max]> {
     const clone = this.copy();
     clone.#min = min;
     clone.#max = max;
@@ -1120,9 +1160,9 @@ class BorgNumber<
 /////////////////////////////////////////////////////////////////////////////////////////////
 
 class BorgBoolean<
-  const TOpts extends _.Flags = ["required", "notNull", "public"],
+  const TFlags extends _.Flags = ["required", "notNull", "public"],
 > extends _.Borg {
-  #opts = {
+  #flags = {
     optional: false,
     nullable: false,
     private: false,
@@ -1134,56 +1174,83 @@ class BorgBoolean<
 
   static #clone<const TBorg extends B.Boolean<any>>(borg: TBorg): TBorg {
     const clone = new BorgBoolean();
-    clone.#opts = { ...borg.#opts };
+    clone.#flags = { ...borg.#flags };
     return clone as any;
   }
 
-  get meta(): _.BooleanMeta<TOpts> {
+  get meta(): _.BooleanMeta<TFlags> {
     return Object.freeze({
       kind: "boolean",
-      ...this.#opts,
+      ...this.#flags,
     }) as any;
   }
 
   get bsonSchema() {
-    return Object.freeze({
-      bsonType: this.#opts.nullable ? Object.freeze(["bool", "null"]) : "bool",
-    }) as _.BooleanBsonSchema<TOpts>;
+    return _.getBsonSchema(this.meta);
+  }
+
+  is(input: unknown): input is ReturnType<this["parse"]> {
+    return this.try(input).ok;
   }
 
   copy(): this {
     return BorgBoolean.#clone(this);
   }
 
-  parse(input: unknown): _.Parsed<boolean, TOpts> {
+  parse(input: unknown): _.Parsed<boolean, TFlags> {
     if (input === undefined) {
-      if (this.#opts.optional) return void 0 as any;
+      if (this.#flags.optional) return void 0 as any;
       throw new BorgError(
         `BOOLEAN_ERROR: Expected boolean${
-          this.#opts.nullable ? " or null" : ""
+          this.#flags.nullable ? " or null" : ""
         }, got undefined`,
       );
     }
     if (input === null) {
-      if (this.#opts.nullable) return null as any;
+      if (this.#flags.nullable) return null as any;
       throw new BorgError(
         `BOOLEAN_ERROR: Expected boolean${
-          this.#opts.optional ? " or undefined" : ""
+          this.#flags.optional ? " or undefined" : ""
         }, got null`,
       );
     }
     if (typeof input !== "boolean") {
       throw new BorgError(
         `BOOLEAN_ERROR: Expected boolean,${
-          this.#opts.optional ? " or undefined," : ""
-        }${this.#opts.nullable ? " or null," : ""} got ${typeof input}`,
+          this.#flags.optional ? " or undefined," : ""
+        }${this.#flags.nullable ? " or null," : ""} got ${typeof input}`,
       );
     }
     return input as any;
   }
 
-  serialize(input: B.Type<this>): _.Sanitized<B.Type<this>, TOpts> {
-    if (this.#opts.private) {
+  try(
+    input: unknown,
+  ): _.TryResult<_.Type<this>, this["meta"], _.Serialized<this>> {
+    try {
+      const value = this.parse(input) as any;
+      return {
+        value,
+        ok: true,
+        meta: this.meta,
+        serialize: () => this.serialize.call(this, value),
+      } as any;
+    } catch (e) {
+      if (e instanceof BorgError) return { ok: false, error: e } as any;
+      else
+        return {
+          ok: false,
+          error: new BorgError(
+            `BOOLEAN_ERROR(try): Unknown error parsing: \n\t${JSON.stringify(
+              e,
+            )}`,
+          ),
+        } as any;
+    }
+  }
+
+  serialize(input: B.Type<this>): _.Sanitized<B.Type<this>, TFlags> {
+    if (this.#flags.private) {
       throw new BorgError(
         `BOOLEAN_ERROR: Cannot serialize private boolean field`,
       );
@@ -1191,65 +1258,65 @@ class BorgBoolean<
     return input as any;
   }
 
-  deserialize(input: B.Serialized<this>): _.Sanitized<B.Type<this>, TOpts> {
+  deserialize(input: B.Serialized<this>): _.Sanitized<B.Type<this>, TFlags> {
     return input as any;
   }
 
-  toBson(input: B.Type<this>): _.Parsed<boolean, TOpts> {
+  toBson(input: _.Parsed<boolean, TFlags>): _.Parsed<boolean, TFlags> {
     return input as any;
   }
 
-  fromBson(input: B.BsonType<this>): B.Type<this> {
+  fromBson(input: B.BsonType<BorgBoolean<TFlags>>): _.Parsed<boolean, TFlags> {
     return input;
   }
 
-  optional(): BorgBoolean<_.MakeOptional<TOpts>> {
+  optional(): BorgBoolean<_.SetOptional<TFlags>> {
     const clone = this.copy();
-    clone.#opts.optional = true;
+    clone.#flags.optional = true;
     return clone as any;
   }
 
-  nullable(): BorgBoolean<_.MakeNullable<TOpts>> {
+  nullable(): BorgBoolean<_.SetNullable<TFlags>> {
     const clone = this.copy();
-    clone.#opts.nullable = true;
+    clone.#flags.nullable = true;
     return clone as any;
   }
 
-  nullish(): BorgBoolean<_.MakeNullish<TOpts>> {
+  nullish(): BorgBoolean<_.SetNullish<TFlags>> {
     const clone = this.copy();
-    clone.#opts.optional = true;
-    clone.#opts.nullable = true;
+    clone.#flags.optional = true;
+    clone.#flags.nullable = true;
     return clone as any;
   }
 
-  required(): BorgBoolean<_.MakeRequired<TOpts>> {
+  required(): BorgBoolean<_.SetRequired<TFlags>> {
     const clone = this.copy();
-    clone.#opts.optional = false;
+    clone.#flags.optional = false;
     return clone as any;
   }
 
-  notNull(): BorgBoolean<_.MakeNotNull<TOpts>> {
+  notNull(): BorgBoolean<_.SetNotNull<TFlags>> {
     const clone = this.copy();
-    clone.#opts.nullable = false;
+    clone.#flags.nullable = false;
     return clone as any;
   }
 
-  notNullish(): BorgBoolean<_.MakeNotNullish<TOpts>> {
+  notNullish(): BorgBoolean<_.SetNotNullish<TFlags>> {
     const clone = this.copy();
-    clone.#opts.optional = false;
-    clone.#opts.nullable = false;
+    clone.#flags.optional = false;
+    clone.#flags.nullable = false;
     return clone as any;
   }
 
-  private(): BorgBoolean<_.MakePrivate<TOpts>> {
+  private(): BorgBoolean<_.SetPrivate<TFlags>> {
     const clone = this.copy();
-    clone.#opts.private = true;
+    clone.#flags.private = true;
     return clone as any;
   }
 
-  public(): BorgBoolean<_.MakePublic<TOpts>> {
+  public(): BorgBoolean<_.SetPublic<TFlags>> {
     const clone = this.copy();
-    clone.#opts.private = false;
+    clone.#flags.private = false;
     return clone as any;
   }
 }
@@ -1277,10 +1344,10 @@ class BorgBoolean<
 /////////////////////////////////////////////////////////////////////////////////////////////
 
 class BorgId<
-  const TOpts extends _.Flags = ["required", "notNull", "public"],
+  const TFlags extends _.Flags = ["required", "notNull", "public"],
   const TFormat extends string | ObjectId = string,
 > extends _.Borg {
-  #opts = {
+  #flags = {
     optional: false,
     nullable: false,
     private: false,
@@ -1293,7 +1360,7 @@ class BorgId<
 
   static #clone<const TBorg extends B.Id<any, any>>(borg: TBorg): TBorg {
     const clone = new BorgId();
-    clone.#opts = { ...borg.#opts };
+    clone.#flags = { ...borg.#flags };
     clone.#format = borg.#format;
     return clone as any;
   }
@@ -1308,40 +1375,40 @@ class BorgId<
     );
   }
 
-  get meta(): _.IdMeta<TOpts, TFormat> {
+  get meta(): _.IdMeta<TFlags, TFormat> {
     return Object.freeze({
       kind: "id",
       format: this.#format ? "string" : "oid",
-      ...this.#opts,
+      ...this.#flags,
     }) as any;
   }
 
   get bsonSchema() {
-    return Object.freeze({
-      bsonType: this.#opts.nullable
-        ? Object.freeze(["null", "objectId"])
-        : "objectId",
-    }) as _.IdBsonSchema<TOpts>;
+    return _.getBsonSchema(this.meta);
+  }
+
+  is(input: unknown): input is ReturnType<this["parse"]> {
+    return this.try(input).ok;
   }
 
   copy(): this {
     return BorgId.#clone(this);
   }
 
-  parse(input: unknown): _.Parsed<TFormat, TOpts> {
+  parse(input: unknown): _.Parsed<TFormat, TFlags> {
     if (input === undefined) {
-      if (this.#opts.optional) return void 0 as any;
+      if (this.#flags.optional) return void 0 as any;
       throw new BorgError(
         `ID_ERROR: Expected valid ObjectId${
-          this.#opts.nullable ? " or null" : ""
+          this.#flags.nullable ? " or null" : ""
         }, got undefined`,
       );
     }
     if (input === null) {
-      if (this.#opts.nullable) return null as any;
+      if (this.#flags.nullable) return null as any;
       throw new BorgError(
         `ID_ERROR: Expected valid ObjectId${
-          this.#opts.optional ? " or undefined" : ""
+          this.#flags.optional ? " or undefined" : ""
         }, got null`,
       );
     }
@@ -1371,13 +1438,36 @@ class BorgId<
     }
     throw new BorgError(
       `ID_ERROR: Expected valid ObjectId,${
-        this.#opts.optional ? " or undefined," : ""
-      }${this.#opts.nullable ? " or null," : ""} got ${typeof input}`,
+        this.#flags.optional ? " or undefined," : ""
+      }${this.#flags.nullable ? " or null," : ""} got ${typeof input}`,
     );
   }
 
-  serialize(input: B.Type<this>): _.Sanitized<string, TOpts> {
-    if (this.#opts.private) {
+  try(
+    input: unknown,
+  ): _.TryResult<_.Type<this>, this["meta"], _.Serialized<this>> {
+    try {
+      const value = this.parse(input) as any;
+      return {
+        value,
+        ok: true,
+        meta: this.meta,
+        serialize: () => this.serialize.call(this, value),
+      } as any;
+    } catch (e) {
+      if (e instanceof BorgError) return { ok: false, error: e } as any;
+      else
+        return {
+          ok: false,
+          error: new BorgError(
+            `ID_ERROR(try): Unknown error parsing: \n\t${JSON.stringify(e)}`,
+          ),
+        } as any;
+    }
+  }
+
+  serialize(input: B.Type<this>): _.Sanitized<string, TFlags> {
+    if (this.#flags.private) {
       throw new BorgError(`ID_ERROR: Cannot serialize private ID field`);
     }
     if (input === undefined || input === null) return input as any;
@@ -1385,83 +1475,296 @@ class BorgId<
     return input.toHexString() as any;
   }
 
-  deserialize(input: B.Serialized<this>): _.Sanitized<B.Type<this>, TOpts> {
+  deserialize(input: B.Serialized<this>): _.Sanitized<B.Type<this>, TFlags> {
     if (input === undefined || input === null) return input as any;
     if (this.#format) return input as any;
     return ObjectId.createFromHexString(input) as any;
   }
 
-  toBson(input: B.Type<this>): _.Parsed<ObjectId, TOpts> {
+  toBson(input: _.Parsed<TFormat, TFlags>): _.Parsed<ObjectId, TFlags> {
     if (input === undefined || input === null) return input as any;
     if (input instanceof ObjectId) return input as any;
     return ObjectId.createFromHexString(input) as any;
   }
 
-  fromBson(input: B.BsonType<this>): B.Type<this> {
+  fromBson(
+    input: B.BsonType<BorgId<TFlags, TFormat>>,
+  ): _.Parsed<TFormat, TFlags> {
     if (input === undefined || input === null) return input as any;
     if (!this.#format) return input as any;
     return input.toHexString() as any;
   }
 
-  optional(): BorgId<_.MakeOptional<TOpts>, TFormat> {
+  optional(): BorgId<_.SetOptional<TFlags>, TFormat> {
     const clone = this.copy();
-    clone.#opts.optional = true;
+    clone.#flags.optional = true;
     return clone as any;
   }
 
-  nullable(): BorgId<_.MakeNullable<TOpts>, TFormat> {
+  nullable(): BorgId<_.SetNullable<TFlags>, TFormat> {
     const clone = this.copy();
-    clone.#opts.nullable = true;
+    clone.#flags.nullable = true;
     return clone as any;
   }
 
-  nullish(): BorgId<_.MakeNullish<TOpts>, TFormat> {
+  nullish(): BorgId<_.SetNullish<TFlags>, TFormat> {
     const clone = this.copy();
-    clone.#opts.optional = true;
-    clone.#opts.nullable = true;
+    clone.#flags.optional = true;
+    clone.#flags.nullable = true;
     return clone as any;
   }
 
-  required(): BorgId<_.MakeRequired<TOpts>, TFormat> {
+  required(): BorgId<_.SetRequired<TFlags>, TFormat> {
     const clone = this.copy();
-    clone.#opts.optional = false;
+    clone.#flags.optional = false;
     return clone as any;
   }
 
-  notNull(): BorgId<_.MakeNotNull<TOpts>, TFormat> {
+  notNull(): BorgId<_.SetNotNull<TFlags>, TFormat> {
     const clone = this.copy();
-    clone.#opts.nullable = false;
+    clone.#flags.nullable = false;
     return clone as any;
   }
 
-  notNullish(): BorgId<_.MakeNotNullish<TOpts>, TFormat> {
+  notNullish(): BorgId<_.SetNotNullish<TFlags>, TFormat> {
     const clone = this.copy();
-    clone.#opts.optional = false;
-    clone.#opts.nullable = false;
+    clone.#flags.optional = false;
+    clone.#flags.nullable = false;
     return clone as any;
   }
 
-  private(): BorgId<_.MakePrivate<TOpts>, TFormat> {
+  private(): BorgId<_.SetPrivate<TFlags>, TFormat> {
     const clone = this.copy();
-    clone.#opts.private = true;
+    clone.#flags.private = true;
     return clone as any;
   }
 
-  public(): BorgId<_.MakePublic<TOpts>, TFormat> {
+  public(): BorgId<_.SetPublic<TFlags>, TFormat> {
     const clone = this.copy();
-    clone.#opts.private = false;
+    clone.#flags.private = false;
     return clone as any;
   }
 
-  asString(): BorgId<TOpts, string> {
+  asString(): BorgId<TFlags, string> {
     const clone = this.copy();
     clone.#format = true as any;
     return clone as any;
   }
 
-  asObjectId(): BorgId<TOpts, ObjectId> {
+  asObjectId(): BorgId<TFlags, ObjectId> {
     const clone = this.copy();
     clone.#format = false as any;
+    return clone as any;
+  }
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////////
+///                                                                                       ///
+///  BBBBBBBBBBBBBBBBB                             OOOOOOOOOOOO     RRRRRRRRRRRRRRRRR     ///
+///  B////////////////B                          OO////////////OO   R////////////////R    ///
+///  B/////////////////B                        OO//////////////OO  R/////////////////R   ///
+///  B//////BBBBBB//////B                      O///////OOO////////O R//////RRRRRRR/////R  ///
+///  BB/////B     B/////B                      O//////O   O///////O RR/////R      R////R  ///
+///    B////B     B/////B                      O/////O     O//////O   R////R      R////R  ///
+///    B////B     B/////B                      O/////O     O//////O   R////R      R////R  ///
+///    B////BBBBBB/////B    ################   O/////O     O//////O   R////RRRRRRR////R   ///
+///    B////////////BB      #//////////////#   O/////O     O//////O   R/////////////RR    ///
+///    B////BBBBBB/////B    #//////////////#   O/////O     O//////O   R////RRRRRRR////R   ///
+///    B////B     B/////B   ################   O/////O     O//////O   R////R      R////R  ///
+///    B////B     B/////B                      O/////O     O//////O   R////R      R////R  ///
+///    B////B     B/////B                      O/////O     O//////O   R////R      R////R  ///
+///  BB/////BBBBBB//////B                      O///////OOO////////O RR/////R      R////R  ///
+///  B/////////////////B                       OO///////////////OO  R//////R      R////R  ///
+///  B////////////////B                         OO/////////////OO   R//////R      R////R  ///
+///  BBBBBBBBBBBBBBBBB                            OOOOOOOOOOOOOO    RRRRRRRR      RRRRRR  ///
+///                                                                                       ///
+/////////////////////////////////////////////////////////////////////////////////////////////
+
+export class BorgUnion<
+  const TFlags extends _.Flags = ["required", "notNull", "public"],
+  const TMembers extends _.Borg[] = _.Borg[],
+> extends _.Borg {
+  #borgMembers: TMembers;
+  #flags = {
+    optional: false,
+    nullable: false,
+    private: false,
+  };
+
+  constructor(members: TMembers) {
+    super();
+    this.#borgMembers = Object.freeze(members.map(m => m.copy())) as any;
+  }
+
+  static #clone<const TBorg extends BorgUnion<any, any[]>>(borg: TBorg) {
+    const newMembers = borg.#borgMembers.map(m => m.copy()) as any;
+    const clone = new BorgUnion(newMembers);
+    clone.#flags = { ...borg.#flags };
+    return clone as any;
+  }
+
+  get meta(): _.UnionMeta<TFlags, TMembers> {
+    return {
+      kind: "union",
+      borgMembers: this.#borgMembers,
+      ...this.#flags,
+    } as any;
+  }
+
+  get bsonSchema() {
+    return _.getBsonSchema(this.meta);
+  }
+
+  is(input: unknown): input is ReturnType<this["parse"]> {
+    return this.try(input).ok;
+  }
+
+  copy(): this {
+    return BorgUnion.#clone(this);
+  }
+
+  parse(input: unknown): _.Parsed<B.Type<TMembers[number]>[][number], TFlags> {
+    if (input === undefined) {
+      if (this.#flags.optional) return void 0 as any;
+      throw new BorgError(
+        `UNION_ERROR: Expected valid type${
+          this.#flags.nullable ? " or null" : ""
+        }, got undefined`,
+      );
+    }
+    if (input === null) {
+      if (this.#flags.nullable) return null as any;
+      throw new BorgError(
+        `UNION_ERROR: Expected valid type${
+          this.#flags.optional ? " or undefined" : ""
+        }, got null`,
+      );
+    }
+    const errors = [] as { ok: false; error: BorgError }[];
+    for (const schema of this.#borgMembers) {
+      const result = schema.try(input);
+      if (result.ok) return result.value as any;
+      errors.push(result);
+    }
+    throw new BorgError(
+      `UNION_ERROR: Expected valid type${
+        this.#flags.optional ? " or undefined" : ""
+      }${
+        this.#flags.nullable ? " or null" : ""
+      }, got ${input}.\n\nErrors: ${errors
+        .map(({ error }) =>
+          typeof error === "string"
+            ? error
+            : typeof error === "object" &&
+              error &&
+              "message" in error &&
+              typeof error.message === "string"
+            ? error.message
+            : "UNKNOWN ERROR",
+        )
+        .join("\n")}`,
+    );
+  }
+
+  try(
+    input: unknown,
+  ): _.TryResult<_.Type<this>, this["meta"], _.Serialized<this>> {
+    try {
+      const value = this.parse(input) as any;
+      return {
+        value,
+        ok: true,
+        meta: this.meta,
+        serialize: () => this.serialize.call(this, value),
+      } as any;
+    } catch (e) {
+      if (e instanceof BorgError) return { ok: false, error: e } as any;
+      else
+        return {
+          ok: false,
+          error: new BorgError(
+            `UNION_ERROR(try): Unknown error parsing: \n\t${JSON.stringify(e)}`,
+          ),
+        } as any;
+    }
+  }
+
+  //TODO: Serialization should result in { __borgMeta: /* META */, data: /* DATA */ }
+  serialize(input: B.Type<this>): _.Sanitized<B.Type<this>, TFlags> {
+    if (input === undefined || input === null) return input as any;
+    for (const type of this.#borgMembers)
+      if (type.is(input)) return type.serialize(input) as any;
+    throw new BorgError(`SERIALIZATION_ERROR: Invalid input`);
+  }
+
+  deserialize(input: B.Serialized<this>): _.Sanitized<_.Type<this>, TFlags> {
+    if (input === undefined || input === null) return input as any;
+    for (const type of this.#borgMembers)
+      if (type.is(input)) return type.deserialize(input) as any;
+    throw new BorgError(`DESERIALIZATION_ERROR: Invalid input`);
+  }
+
+  toBson(input: any): _.Parsed<any, TFlags> {
+    if (input === undefined || input === null) return input as any;
+    for (const type of this.#borgMembers)
+      if (type.is(input)) return type.toBson(input) as any;
+    throw new BorgError(`TO_BSON_ERROR: Invalid input`);
+  }
+
+  fromBson(input: any): _.Parsed<any, TFlags> {
+    if (input === undefined || input === null) return input as any;
+    for (const type of this.#borgMembers)
+      if (type.is(input)) return type.fromBson(input) as any;
+    throw new BorgError(`FROM_BSON_ERROR: Invalid input`);
+  }
+
+  optional(): BorgUnion<_.SetOptional<TFlags>, TMembers> {
+    const clone = this.copy();
+    clone.#flags.optional = true;
+    return clone as any;
+  }
+
+  nullable(): BorgUnion<_.SetNullable<TFlags>, TMembers> {
+    const clone = this.copy();
+    clone.#flags.nullable = true;
+    return clone as any;
+  }
+
+  nullish(): BorgUnion<_.SetNullish<TFlags>, TMembers> {
+    const clone = this.copy();
+    clone.#flags.optional = true;
+    clone.#flags.nullable = true;
+    return clone as any;
+  }
+
+  required(): BorgUnion<_.SetRequired<TFlags>, TMembers> {
+    const clone = this.copy();
+    clone.#flags.optional = false;
+    return clone as any;
+  }
+
+  notNull(): BorgUnion<_.SetNotNull<TFlags>, TMembers> {
+    const clone = this.copy();
+    clone.#flags.nullable = false;
+    return clone as any;
+  }
+
+  notNullish(): BorgUnion<_.SetNotNullish<TFlags>, TMembers> {
+    const clone = this.copy();
+    clone.#flags.optional = false;
+    clone.#flags.nullable = false;
+    return clone as any;
+  }
+
+  private(): BorgUnion<_.SetPrivate<TFlags>, TMembers> {
+    const clone = this.copy();
+    clone.#flags.private = true;
+    return clone as any;
+  }
+
+  public(): BorgUnion<_.SetPublic<TFlags>, TMembers> {
+    const clone = this.copy();
+    clone.#flags.private = false;
     return clone as any;
   }
 }
@@ -1548,42 +1851,48 @@ const B = {
   string: () => new BorgString(),
   number: () => new BorgNumber(),
   boolean: () => new BorgBoolean(),
-  array: <const TBorg extends _.Borg>(itemSchema: TBorg) => new BorgArray(itemSchema),
+  array: <const T extends _.Borg>(itemSchema: T) => new BorgArray(itemSchema),
   object: <const T extends { [key: string]: _.Borg }>(shape: T) =>
     new BorgObject(shape),
+  union: <const T extends _.Borg[]>(...members: T) => new BorgUnion(members),
   model: makeBorg,
 };
 
 declare module B {
-  export type Boolean<TOpts extends _.Flags = _.Flags> = BorgBoolean<TOpts>;
+  export type Boolean<TFlags extends _.Flags = _.Flags> = BorgBoolean<TFlags>;
 
   export type Id<
-    TOpts extends _.Flags = _.Flags,
+    TFlags extends _.Flags = _.Flags,
     TFormat extends "string" | "oid" = "string" | "oid",
-  > = BorgId<TOpts, TFormat>;
+  > = InstanceType<typeof BorgId<TFlags, TFormat>>;
 
   export type Number<
-    TOpts extends _.Flags = _.Flags,
+    TFlags extends _.Flags = _.Flags,
     TLength extends _.MinMax = _.MinMax,
-  > = BorgNumber<TOpts, TLength>;
+  > = InstanceType<typeof BorgNumber<TFlags, TLength>>;
 
   export type String<
-    TOpts extends _.Flags = _.Flags,
+    TFlags extends _.Flags = _.Flags,
     TLength extends _.MinMax = _.MinMax,
     TPattern extends string = string,
-  > = BorgString<TOpts, TLength, TPattern>;
+  > = InstanceType<typeof BorgString<TFlags, TLength, TPattern>>;
 
   export type Array<
-    TOpts extends _.Flags = _.Flags,
-    TItems extends _.Borg = _.Borg,
+    TFlags extends _.Flags = _.Flags,
     TLength extends _.MinMax = _.MinMax,
-  > = BorgArray<TOpts, TLength, TItems>;
+    TItems extends _.Borg = _.Borg,
+  > = InstanceType<typeof BorgArray<TFlags, TLength, TItems>>;
 
   export type Object<
-    TOpts extends _.Flags = _.Flags,
+    TFlags extends _.Flags = _.Flags,
     TShape extends { [key: string]: _.Borg } = { [key: string]: _.Borg },
-  > = BorgObject<TOpts, TShape>;
-  
+  > = InstanceType<typeof BorgObject<TFlags, TShape>>;
+
+  export type Union<
+    TFlags extends _.Flags = _.Flags,
+    TMembers extends _.Borg[] = _.Borg[],
+  > = BorgUnion<TFlags, TMembers>;
+
   export type Borg = _.Borg;
   export type Type<T extends _.Borg> = _.Type<T>;
   export type BsonType<T extends _.Borg> = _.BsonType<T>;
@@ -1595,7 +1904,9 @@ declare module B {
     | B.String
     | B.Number
     | B.Boolean
-    | B.Id;
+    | B.Id
+    | B.Union
+    | B.Borg;
 }
 
 export default B;

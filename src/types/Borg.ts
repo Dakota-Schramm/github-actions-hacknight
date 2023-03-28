@@ -1,23 +1,48 @@
+import { BorgError } from "src/errors";
 import { Meta } from "./Meta";
+
+/////////////////////////////////////////////////////////////////////////////////////////////
+///                                                                                       ///
+///  BBBBBBBBBBBBBBBBB        OOOOOOOOOOOO     RRRRRRRRRRRRRRRRR        GGGGGGGGGGG       ///
+///  B////////////////B     OO////////////OO   R////////////////R     GG///////////GG     ///
+///  B/////////////////B   OO//////////////OO  R/////////////////R   GG/////////////GG    ///
+///  B//////BBBBBB//////B O///////OOO////////O R//////RRRRRRR/////R G/////GGGGGGG/////G   ///
+///  BB/////B     B/////B O//////O   O///////O RR/////R      R////R G////G       G////G   ///
+///    B////B     B/////B O/////O     O//////O   R////R      R////R G////G       GGGGGG   ///
+///    B////B     B/////B O/////O     O//////O   R////R      R////R G////G                ///
+///    B////BBBBBB/////B  O/////O     O//////O   R////RRRRRRR////R  G////G   GGGGGGGG     ///
+///    B////////////BB    O/////O     O//////O   R/////////////RR   G////G  GG///////GG   ///
+///    B////BBBBBB/////B  O/////O     O//////O   R////RRRRRRR////R  G////G  G/////////GG  ///
+///    B////B     B/////B O/////O     O//////O   R////R      R////R G////G  G////G/////G  ///
+///    B////B     B/////B O/////O     O//////O   R////R      R////R G////G   GGGG G////G  ///
+///    B////B     B/////B O//////O   O///////O   R////R      R////R G/////G      GG////G  ///
+///  BB/////BBBBBB//////B O///////OOO////////O RR/////R      R////R G//////GGGGGG//////G  ///
+///  B/////////////////B  OO///////////////OO  R//////R      R////R  GG////////////////G  ///
+///  B////////////////B    OO/////////////OO   R//////R      R////R    GG///////GG/////G  ///
+///  BBBBBBBBBBBBBBBBB       OOOOOOOOOOOOOO    RRRRRRRR      RRRRRR     GGGGGGGG  GGGGGG  ///
+///                                                                                       ///
+/////////////////////////////////////////////////////////////////////////////////////////////
 
 /*TODO: type BorgOptions = { exactOptionalProperties?: Boolean | undefined;} */
 export abstract class Borg {
   abstract get meta(): Meta;
   abstract get bsonSchema(): any;
   abstract copy(): Borg;
-  abstract parse(input: unknown): any;
+  abstract parse(input: unknown): unknown;
+  abstract try(input: unknown): TryResult<unknown, Meta, unknown>;
+  abstract is(input: unknown): input is Type<this>;
   abstract serialize(input: any): any;
   abstract deserialize(input: any): any;
   abstract toBson(input: any): any;
   abstract fromBson(input: any): any;
-  abstract private(): any;
-  abstract public(): any;
-  abstract optional(): any;
-  abstract nullable(): any;
-  abstract nullish(): any;
-  abstract required(): any;
-  abstract notNull(): any;
-  abstract notNullish(): any;
+  abstract private(): Borg;
+  abstract public(): Borg;
+  abstract optional(): Borg;
+  abstract nullable(): Borg;
+  abstract nullish(): Borg;
+  abstract required(): Borg;
+  abstract notNull(): Borg;
+  abstract notNullish(): Borg;
   /* c8 ignore next */
 }
 
@@ -52,3 +77,15 @@ export type Serialized<TBorg extends { serialize: (arg0: any) => any }> =
   ReturnType<TBorg["serialize"]>;
 export type Deserialized<TBorg extends { deserialize: (arg0: any) => any }> =
   ReturnType<TBorg["deserialize"]>;
+
+export type TryResult<TValue, TMeta, TSerialized> =
+  | {
+      ok: true;
+      value: TValue;
+      meta: TMeta;
+      serialize: () => TSerialized;
+    }
+  | {
+      ok: false;
+      error: BorgError;
+    };

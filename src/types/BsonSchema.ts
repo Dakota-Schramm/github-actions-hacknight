@@ -1,348 +1,123 @@
-import { Flags, GetFlags, MinMax, Borg, RequiredKeysArray } from ".";
+import { ObjectId } from "bson";
+import { Flags, MinMax, Borg, Meta, PrettyPrint, ObjectMeta, ArrayMeta, BooleanMeta, IdMeta, NumberMeta, StringMeta, UnionMeta } from ".";
 
-export type IdBsonSchema<TFlags extends Flags> =
-  GetFlags<TFlags>["nullable"] extends true
-    ? { bsonType: ["objectId", "null"] }
-    : { bsonType: "objectId" };
+export type BsonSchema<TMeta extends Meta> = PrettyPrint<
+TMeta extends UnionMeta<infer TFlags extends Flags, infer TBorgs extends Borg[]>
+? UnionBsonSchema<UnionMeta<TFlags, TBorgs>> :
+  TMeta extends ObjectMeta<infer TFlags extends Flags, infer TShape extends {[k in infer _k]: infer _b extends Borg}>
+    ? ObjectBsonSchema<ObjectMeta<TFlags, TShape>>
+    : TMeta extends ArrayMeta<infer TFlags extends Flags, infer TMinMax extends MinMax, infer TItems>
+    ? ArrayBsonSchema<ArrayMeta<TFlags, TMinMax, TItems>>
+    : TMeta extends IdMeta<infer TFlags extends Flags, infer TFormat extends string | ObjectId>
+    ? IdBsonSchema<IdMeta<TFlags, TFormat>>
+    : TMeta extends NumberMeta<infer TFlags extends Flags, infer TMinMax extends MinMax>
+    ? NumberBsonSchema<NumberMeta<TFlags, TMinMax>>
+    : TMeta extends StringMeta<infer TFlags extends Flags, infer TMinMax extends MinMax, infer TPattern extends string>
+    ? StringBsonSchema<StringMeta<TFlags, TMinMax, TPattern>>
+    : TMeta extends BooleanMeta<infer TFlags extends Flags>
+    ? BooleanBsonSchema<BooleanMeta<TFlags>>
+    : never
+>;
 
-export type ObjectBsonSchema<
-  TShape extends { [key: string]: Borg },
-  TFlags extends Flags,
-> = TFlags extends [Flags[0], infer N extends Flags[1], Flags[2]]
-  ? N extends "nullable"
-    ? {
-        bsonType: readonly ["null", "object"];
-        required: RequiredKeysArray<TShape>;
-        properties: {
-          [key in keyof TShape]: TShape[key]["bsonSchema"];
-        };
-      }
-    : {
-        bsonType: "object";
-        required: RequiredKeysArray<TShape>;
-        properties: {
-          [key in keyof TShape]: TShape[key]["bsonSchema"];
-        };
-      }
-  : never;
+type UnionBsonSchema<TMeta extends Extract<Meta, { kind: "union" }>> = {
+  oneOf: [...TMeta["borgMembers"][number]["bsonSchema"][], ...(TMeta["nullable"] extends true ? [{ bsonType: "null" }] : [])];
+};
 
-export type ArrayBsonSchema<
-  TItem extends Borg,
-  TFlags extends Flags,
-  TLen extends MinMax,
-> = [true, null, null] extends [GetFlags<TFlags>["nullable"], TLen[0], TLen[1]]
-  ? {
-      bsonType: ["array", "null"];
-      items: TItem["bsonSchema"];
-    }
-  : [true, number, null] extends [
-      GetFlags<TFlags>["nullable"],
-      TLen[0],
-      TLen[1],
-    ]
-  ? {
-      bsonType: ["array", "null"];
-      items: TItem["bsonSchema"];
-      minItems: TLen[0];
-    }
-  : [true, null, number] extends [
-      GetFlags<TFlags>["nullable"],
-      TLen[0],
-      TLen[1],
-    ]
-  ? {
-      bsonType: ["array", "null"];
-      items: TItem["bsonSchema"];
-      maxItems: TLen[1];
-    }
-  : [true, number, number] extends [
-      GetFlags<TFlags>["nullable"],
-      TLen[0],
-      TLen[1],
-    ]
-  ? {
-      bsonType: ["array", "null"];
-      items: TItem["bsonSchema"];
-      minItems: TLen[0];
-      maxItems: TLen[1];
-    }
-  : [false, null, null] extends [GetFlags<TFlags>["nullable"], TLen[0], TLen[1]]
-  ? {
-      bsonType: "array";
-      items: TItem["bsonSchema"];
-    }
-  : [false, number, null] extends [
-      GetFlags<TFlags>["nullable"],
-      TLen[0],
-      TLen[1],
-    ]
-  ? {
-      bsonType: "array";
-      items: TItem["bsonSchema"];
-      minItems: TLen[0];
-    }
-  : [false, null, number] extends [
-      GetFlags<TFlags>["nullable"],
-      TLen[0],
-      TLen[1],
-    ]
-  ? {
-      bsonType: "array";
-      items: TItem["bsonSchema"];
-      maxItems: TLen[1];
-    }
-  : {
-      bsonType: "array";
-      items: TItem["bsonSchema"];
-      minItems: TLen[0];
-      maxItems: TLen[1];
-    };
+type IdBsonSchema<TMeta extends Extract<Meta, { kind: "id" }>> = {
+  bsonType: TMeta["nullable"] extends true ? ["objectId", "null"] : "objectId";
+};
 
-export type BooleanBsonSchema<TFlags extends Flags> =
-  GetFlags<TFlags>["nullable"] extends true
-    ? { bsonType: ["bool", "null"] }
-    : { bsonType: "bool" };
+type ObjectBsonSchema<TMeta extends Extract<Meta, { kind: "object" }>> = {
+  bsonType: TMeta["nullable"] extends true ? ["object", "null"] : "object";
+  required: TMeta["requiredKeys"];
+  properties: {
+    [k in keyof TMeta["borgShape"]]: TMeta["borgShape"][k]["bsonSchema"];
+  };
+};
 
-export type NumberBsonSchema<TFlags extends Flags, TLen extends MinMax> = [
-  GetFlags<TFlags>["nullable"],
-  TLen[0],
-  TLen[1],
-] extends [true, null, null]
-  ? {
-      bsonType: ["number", "null"];
-    }
-  : [GetFlags<TFlags>["nullable"], TLen[0], TLen[1]] extends [
-      true,
-      number,
-      null,
-    ]
-  ? {
-      bsonType: ["number", "null"];
-      minimum: TLen[0];
-    }
-  : [GetFlags<TFlags>["nullable"], TLen[0], TLen[1]] extends [
-      true,
-      null,
-      number,
-    ]
-  ? {
-      bsonType: ["number", "null"];
-      maximum: TLen[1];
-    }
-  : [GetFlags<TFlags>["nullable"], TLen[0], TLen[1]] extends [
-      true,
-      number,
-      number,
-    ]
-  ? {
-      bsonType: ["number", "null"];
-      minimum: TLen[0];
-      maximum: TLen[1];
-    }
-  : [GetFlags<TFlags>["nullable"], TLen[0], TLen[1]] extends [false, null, null]
-  ? {
-      bsonType: "number";
-    }
-  : [GetFlags<TFlags>["nullable"], TLen[0], TLen[1]] extends [
-      false,
-      number,
-      null,
-    ]
-  ? {
-      bsonType: "number";
-      minimum: TLen[0];
-    }
-  : [GetFlags<TFlags>["nullable"], TLen[0], TLen[1]] extends [
-      false,
-      null,
-      number,
-    ]
-  ? {
-      bsonType: "number";
-      maximum: TLen[1];
-    }
-  : [GetFlags<TFlags>["nullable"], TLen[0], TLen[1]] extends [
-      false,
-      number,
-      number,
-    ]
-  ? {
-      bsonType: "number";
-      minimum: TLen[0];
-      maximum: TLen[1];
-    }
-  : never;
+type ArrayBsonSchema<TMeta extends Extract<Meta, { kind: "array" }>> = {
+  bsonType: TMeta["nullable"] extends true ? ["array", "null"] : "array";
+  items: TMeta["borgItems"]["bsonSchema"];
+} & (TMeta["minItems"] extends number ? { minItems: TMeta["minItems"] } : {}) &
+  (TMeta["maxItems"] extends number ? { maxItems: TMeta["maxItems"] } : {});
 
-export type StringBsonSchema<
-  TFlags extends Flags,
-  TLen extends MinMax,
-  TPattern extends string,
-> = [GetFlags<TFlags>["nullable"], TLen[0], TLen[1], TPattern] extends [
-  true,
-  null,
-  null,
-  ".*",
-]
-  ? {
-      bsonType: ["string", "null"];
+type NumberBsonSchema<TMeta extends Extract<Meta, { kind: "number" }>> = {
+  bsonType: TMeta["nullable"] extends true ? ["number", "null"] : "number";
+} & (TMeta["min"] extends number ? { minimum: TMeta["min"] } : {}) &
+  (TMeta["max"] extends number ? { maximum: TMeta["max"] } : {});
+
+type StringBsonSchema<TMeta extends StringMeta<Flags, MinMax, string>> = {
+  bsonType: TMeta["nullable"] extends true ? ["string", "null"] : "string";
+} & (TMeta["minLength"] extends number
+  ? { minLength: TMeta["minLength"] }
+  : {}) &
+  (TMeta["maxLength"] extends number ? { maxLength: TMeta["maxLength"] } : {}) &
+  (TMeta["pattern"] extends ".*" ? {} : { pattern: TMeta["pattern"] });
+
+type BooleanBsonSchema<TMeta extends Extract<Meta, { kind: "boolean" }>> = {
+  bsonType: TMeta["nullable"] extends true ? ["bool", "null"] : "bool";
+};
+
+export function getBsonSchema<const TMeta extends Meta>(
+  meta: TMeta
+): BsonSchema<TMeta> {
+  switch (meta.kind) {
+    case "union": {
+        const { nullable, borgMembers } = meta;
+        return Object.freeze({
+            oneOf: [...borgMembers.map((m) => getBsonSchema(m.meta)), ...(nullable ? [{ bsonType: "null" }] : [])],
+        }) as any;
     }
-  : [GetFlags<TFlags>["nullable"], TLen[0], TLen[1], TPattern] extends [
-      true,
-      number,
-      null,
-      ".*",
-    ]
-  ? {
-      bsonType: ["string", "null"];
-      minLength: TLen[0];
+    case "string": {
+      const { minLength: min, maxLength: max, nullable, regex } = meta;
+      return Object.freeze({
+        bsonType: nullable ? Object.freeze(["string", "null"]) : "string",
+        ...(min !== null ? { minLength: min } : {}),
+        ...(max !== null ? { maxLength: max } : {}),
+        ...(regex ? { pattern: regex.source } : {}),
+      }) as any;
     }
-  : [GetFlags<TFlags>["nullable"], TLen[0], TLen[1], TPattern] extends [
-      true,
-      null,
-      number,
-      ".*",
-    ]
-  ? {
-      bsonType: ["string", "null"];
-      maxLength: TLen[1];
+    case "number": {
+      const { min, max, nullable } = meta;
+      return {
+        bsonType: nullable ? Object.freeze(["double", "null"]) : "double",
+        ...(min !== null ? { minimum: min } : {}),
+        ...(max !== null ? { maximum: max } : {}),
+      } as any;
     }
-  : [GetFlags<TFlags>["nullable"], TLen[0], TLen[1], TPattern] extends [
-      true,
-      number,
-      number,
-      ".*",
-    ]
-  ? {
-      bsonType: ["string", "null"];
-      minLength: TLen[0];
-      maxLength: TLen[1];
+    case "array": {
+      const { minItems, maxItems, nullable, borgItems: itemsBorg } = meta;
+      return {
+        bsonType: nullable ? Object.freeze(["array", "null"]) : "array",
+        items: itemsBorg.bsonSchema,
+        ...(minItems !== null ? { minItems } : {}),
+        ...(maxItems !== null ? { maxItems } : {}),
+      } as any;
     }
-  : [GetFlags<TFlags>["nullable"], TLen[0], TLen[1], TPattern] extends [
-      false,
-      null,
-      null,
-      ".*",
-    ]
-  ? {
-      bsonType: "string";
+    case "object": {
+      const { nullable, borgShape: shape, requiredKeys } = meta;
+      return {
+        bsonType: nullable ? Object.freeze(["object", "null"]) : "object",
+        required: Object.freeze([...requiredKeys]),
+        properties: Object.fromEntries(
+          Object.entries(shape).map(([key, value]) => [key, value.bsonSchema]),
+        ),
+      } as any;
     }
-  : [GetFlags<TFlags>["nullable"], TLen[0], TLen[1], TPattern] extends [
-      false,
-      number,
-      null,
-      ".*",
-    ]
-  ? {
-      bsonType: "string";
-      minLength: TLen[0];
+    case "boolean": {
+      const { nullable } = meta;
+      return {
+        bsonType: nullable ? Object.freeze(["bool", "null"]) : "bool",
+      } as any;
     }
-  : [GetFlags<TFlags>["nullable"], TLen[0], TLen[1], TPattern] extends [
-      false,
-      null,
-      number,
-      ".*",
-    ]
-  ? {
-      bsonType: "string";
-      maxLength: TLen[1];
+    case "id": {
+      const { nullable } = meta;
+      return {
+        bsonType: nullable ? Object.freeze(["objectId", "null"]) : "objectId",
+      } as any;
     }
-  : [GetFlags<TFlags>["nullable"], TLen[0], TLen[1], TPattern] extends [
-      false,
-      number,
-      number,
-      ".*",
-    ]
-  ? {
-      bsonType: "string";
-      minLength: TLen[0];
-      maxLength: TLen[1];
+    default: {
+      throw new Error("unreachable");
     }
-  : [GetFlags<TFlags>["nullable"], TLen[0], TLen[1], TPattern] extends [
-      true,
-      null,
-      null,
-      infer TRegex,
-    ]
-  ? {
-      bsonType: ["string", "null"];
-      pattern: TRegex;
-    }
-  : [GetFlags<TFlags>["nullable"], TLen[0], TLen[1], TPattern] extends [
-      true,
-      number,
-      null,
-      infer TRegex,
-    ]
-  ? {
-      bsonType: ["string", "null"];
-      minLength: TLen[0];
-      pattern: TRegex;
-    }
-  : [GetFlags<TFlags>["nullable"], TLen[0], TLen[1], TPattern] extends [
-      true,
-      null,
-      number,
-      infer TRegex,
-    ]
-  ? {
-      bsonType: ["string", "null"];
-      maxLength: TLen[1];
-      pattern: TRegex;
-    }
-  : [GetFlags<TFlags>["nullable"], TLen[0], TLen[1], TPattern] extends [
-      true,
-      number,
-      number,
-      infer TRegex,
-    ]
-  ? {
-      bsonType: ["string", "null"];
-      minLength: TLen[0];
-      maxLength: TLen[1];
-      pattern: TRegex;
-    }
-  : [GetFlags<TFlags>["nullable"], TLen[0], TLen[1], TPattern] extends [
-      false,
-      null,
-      null,
-      infer TRegex,
-    ]
-  ? {
-      bsonType: "string";
-      pattern: TRegex;
-    }
-  : [GetFlags<TFlags>["nullable"], TLen[0], TLen[1], TPattern] extends [
-      false,
-      number,
-      null,
-      infer TRegex,
-    ]
-  ? {
-      bsonType: "string";
-      minLength: TLen[0];
-      pattern: TRegex;
-    }
-  : [GetFlags<TFlags>["nullable"], TLen[0], TLen[1], TPattern] extends [
-      false,
-      null,
-      number,
-      infer TRegex,
-    ]
-  ? {
-      bsonType: "string";
-      maxLength: TLen[1];
-      pattern: TRegex;
-    }
-  : [GetFlags<TFlags>["nullable"], TLen[0], TLen[1], TPattern] extends [
-      false,
-      number,
-      number,
-      infer TRegex,
-    ]
-  ? {
-      bsonType: "string";
-      minLength: TLen[0];
-      maxLength: TLen[1];
-      pattern: TRegex;
-    }
-  : never;
+  }
+}

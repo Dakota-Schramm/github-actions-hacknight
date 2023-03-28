@@ -1,5 +1,11 @@
 # @alecvision/borg
 
+## 0.3.0
+
+### Minor Changes
+
+- Introduces .try(), .is(), and BorgUnion
+
 ## 0.2.1
 
 ### Patch Changes
