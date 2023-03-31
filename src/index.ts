@@ -40,7 +40,7 @@ class BorgObject<
     [key: string]: _.Borg;
   },
 > extends Borg {
-  #shape: TShape;
+  #borgShape: TShape;
   #additionalProperties: "passthrough" | "strict" | "strip" | _.Borg = "strip";
   #flags = {
     optional: false,
@@ -50,7 +50,7 @@ class BorgObject<
 
   constructor(shape: TShape) {
     super();
-    this.#shape = Object.freeze(
+    this.#borgShape = Object.freeze(
       Object.fromEntries(
         Object.entries(shape).map(([key, value]) => [key, value.copy()]),
       ),
@@ -61,7 +61,7 @@ class BorgObject<
     borg: TBorg,
   ): TBorg {
     const newShape = {} as { [key: string]: _.Borg };
-    for (const key in borg.#shape) newShape[key] = borg.#shape[key]!.copy();
+    for (const key in borg.#borgShape) newShape[key] = borg.#borgShape[key]!.copy();
     const clone = new BorgObject(newShape);
     clone.#flags = { ...borg.#flags };
     clone.#additionalProperties =
@@ -74,11 +74,11 @@ class BorgObject<
   get meta(): _.ObjectMeta<TFlags, TOtherProps, TShape> {
     return Object.freeze({
       kind: "object",
-      borgShape: this.#shape,
-      keys: Object.freeze(Object.keys(this.#shape)),
+      borgShape: this.#borgShape,
+      keys: Object.freeze(Object.keys(this.#borgShape)),
       requiredKeys: Object.freeze(
-        Object.keys(this.#shape).filter(
-          k => this.#shape[k]!.meta.optional === false,
+        Object.keys(this.#borgShape).filter(
+          k => this.#borgShape[k]!.meta.optional === false,
         ),
       ),
       additionalProperties:
@@ -139,7 +139,7 @@ class BorgObject<
 
     if (this.#additionalProperties === "strict") {
       for (const key in input) {
-        if (!isin(this.#shape, key)) {
+        if (!isin(this.#borgShape, key)) {
           throw new BorgError(
             `OBJECT_ERROR: Unexpected property "${key}"`,
             undefined,
@@ -149,8 +149,8 @@ class BorgObject<
       }
     }
 
-    for (const key in this.#shape) {
-      const schema = this.#shape[key];
+    for (const key in this.#borgShape) {
+      const schema = this.#borgShape[key];
 
       if (schema === undefined) {
         throw new BorgError(
@@ -162,7 +162,7 @@ class BorgObject<
 
       if (!isin(input, key)) {
         //TODO: implement 'exactOptional' by providing a config flag somewhere?
-        if (this.#shape[key]!.meta.optional === false) {
+        if (this.#borgShape[key]!.meta.optional === false) {
           throw new BorgError(
             `OBJECT_ERROR: Missing property "${key}"`,
             undefined,
@@ -173,7 +173,7 @@ class BorgObject<
       }
 
       try {
-        const parsed = this.#shape[key]!.parse(input[key]);
+        const parsed = this.#borgShape[key]!.parse(input[key]);
         result[key] = parsed;
         continue;
       } catch (e) {
@@ -197,7 +197,7 @@ class BorgObject<
 
     if (this.#additionalProperties === "passthrough") {
       for (const key in input) {
-        if (!isin(this.#shape, key)) {
+        if (!isin(this.#borgShape, key)) {
           result[key] = input[key];
         }
       }
@@ -205,7 +205,7 @@ class BorgObject<
 
     if (this.#additionalProperties instanceof Borg) {
       for (const key in input) {
-        if (!isin(this.#shape, key)) {
+        if (!isin(this.#borgShape, key)) {
           const parsed = this.#additionalProperties.try(input[key]);
           if (parsed.ok) result[key] = parsed.value;
           else {
@@ -257,9 +257,9 @@ class BorgObject<
     }
     if (input === null || input === undefined) return input as any;
     const result = {} as any;
-    for (const key in this.#shape) {
+    for (const key in this.#borgShape) {
       if (!isin(input, key)) continue;
-      const schema = this.#shape[key];
+      const schema = this.#borgShape[key];
       if (schema === undefined)
         throw new BorgError(
           `SCHEMA_ERROR(serialize): Invalid schema for key "${key}": got undefined`,
@@ -278,9 +278,9 @@ class BorgObject<
   ): _.Sanitized<{ [k in keyof TShape]: B.Deserialized<TShape[k]> }, TFlags> {
     if (input === null || input === undefined) return input as any;
     const result = {} as any;
-    for (const key in this.#shape) {
+    for (const key in this.#borgShape) {
       if (!isin(input, key)) continue;
-      const schema = this.#shape[key];
+      const schema = this.#borgShape[key];
       if (schema === undefined) {
         throw new BorgError(
           `SCHEMA_ERROR(deserialize): Invalid schema for key "${key}": got undefined`,
@@ -308,9 +308,9 @@ class BorgObject<
   } {
     if (input === null || input === undefined) return input as any;
     const result = {} as any;
-    for (const key in this.#shape) {
+    for (const key in this.#borgShape) {
       if (!isin(input, key)) continue;
-      const schema = this.#shape[key];
+      const schema = this.#borgShape[key];
       if (schema === undefined) {
         throw new BorgError(
           `SCHEMA_ERROR(toBson): Invalid schema for key "${key}": got undefined`,
@@ -328,9 +328,9 @@ class BorgObject<
   ): _.Parsed<{ [k in keyof TShape]: B.Type<TShape[k]> }, TFlags> {
     if (input === null || input === undefined) return input as any;
     const result = {} as any;
-    for (const key in this.#shape) {
+    for (const key in this.#borgShape) {
       if (!isin(input, key)) continue;
-      const schema = this.#shape[key];
+      const schema = this.#borgShape[key];
       if (schema === undefined) {
         throw new BorgError(
           `SCHEMA_ERROR(fromBson): Invalid schema for key "${key}": got undefined`,
@@ -431,7 +431,7 @@ class BorgArray<
   const TLength extends _.MinMax = [null, null],
   const TItemSchema extends _.Borg = _.Borg,
 > extends Borg {
-  #itemSchema: TItemSchema;
+  #borgItems: TItemSchema;
   #flags = {
     optional: false,
     nullable: false,
@@ -442,13 +442,13 @@ class BorgArray<
 
   constructor(itemSchema: TItemSchema) {
     super();
-    this.#itemSchema = itemSchema.copy() as any;
+    this.#borgItems = itemSchema as any;
   }
 
   static #clone<const TBorg extends BorgArray<any, any, any>>(
     borg: TBorg,
   ): TBorg {
-    const clone = new BorgArray(borg.#itemSchema);
+    const clone = new BorgArray(borg.#borgItems);
     clone.#flags = { ...borg.#flags };
     clone.#max = borg.#max;
     clone.#min = borg.#min;
@@ -460,7 +460,7 @@ class BorgArray<
       kind: "array",
       maxItems: this.#max,
       minItems: this.#min,
-      itemSchema: this.#itemSchema.copy(),
+      borgItems: this.#borgItems.copy(),
       ...this.#flags,
     }) as any;
   }
@@ -518,7 +518,7 @@ class BorgArray<
     const result = new Array(input.length) as any;
     for (let i = 0; i < input.length; i++) {
       try {
-        const parsed = this.#itemSchema.parse(input[i]);
+        const parsed = this.#borgItems.parse(input[i]);
         result[i] = parsed;
         continue;
       } catch (e) {
@@ -574,7 +574,7 @@ class BorgArray<
     if (input === null || input === undefined) return input as any;
     const result = new Array(input.length) as any;
     for (let i = 0; i < input.length; i++) {
-      result[i] = this.#itemSchema.serialize(input[i]);
+      result[i] = this.#borgItems.serialize(input[i]);
     }
     return result;
   }
@@ -582,10 +582,11 @@ class BorgArray<
   deserialize(
     input: B.Serialized<this>,
   ): _.Sanitized<Array<B.Deserialized<TItemSchema>>, TFlags> {
-    if (input === null || input === undefined) return input as any;
+    if (input === null || input === undefined)
+      return input as any;
     const result = new Array(input.length) as any;
     for (let i = 0; i < input.length; i++) {
-      result[i] = this.#itemSchema.deserialize(input[i]);
+      result[i] = this.#borgItems.deserialize(input[i]);
     }
     return result;
   }
@@ -596,7 +597,7 @@ class BorgArray<
     if (input === null || input === undefined) return input as any;
     const result = new Array(input.length) as any;
     for (let i = 0; i < input.length; i++) {
-      result[i] = this.#itemSchema.toBson(input[i]);
+      result[i] = this.#borgItems.toBson(input[i]);
     }
     return result;
   }
@@ -607,7 +608,7 @@ class BorgArray<
     if (input === null || input === undefined) return input as any;
     const result = new Array(input.length) as any;
     for (let i = 0; i < input.length; i++) {
-      result[i] = this.#itemSchema.fromBson(input[i]);
+      result[i] = this.#borgItems.fromBson(input[i]);
     }
     return result;
   }
@@ -1758,7 +1759,7 @@ export class BorgUnion<
     }
   }
 
-  //TODO: Serialization should result in { __borgMeta: /* META */, data: /* DATA */ }
+  //TODO: Serialization and deserialization should be aligned with other borgs
   serialize(input: B.Type<this>): _.Sanitized<B.Type<this>, TFlags> {
     if (input === undefined || input === null) return input as any;
     for (const type of this.#borgMembers)
