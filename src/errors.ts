@@ -1,4 +1,3 @@
-
 /////////////////////////////////////////////////////////////////////////////////////////////
 ///                                                                                       ///
 ///  BBBBBBBBBBBBBBBBB    EEEEEEEEEEEEEEEEEEEE RRRRRRRRRRRRRRRRR    RRRRRRRRRRRRRRRRR     ///
@@ -42,3 +41,28 @@ export class BorgError<
   }
   /* c8 ignore next */
 }
+
+/* c8 ignore start */
+
+//@ts-expect-error - Vite handles this import.meta check
+if (import.meta.vitest) {
+  //@ts-expect-error - Vite handles this top-level await
+  const { describe, it, expect } = await import("vitest");
+  describe("BorgError", () => {
+    it("should be a subclass of Error", () => {
+      expect(new BorgError("")).toBeInstanceOf(Error);
+    });
+
+    it("should have a path property that is an array", () => {
+      expect(Array.isArray(new BorgError("").path)).toBe(true);
+    });
+
+    it("should append the path of the cause to the path of the error", () => {
+      const cause = new BorgError("cause", undefined, ["cause"]);
+      const error = new BorgError("error", cause, ["error"]);
+      expect(error.path).toEqual(["error", "cause"]);
+    });
+  });
+}
+
+/* c8 ignore stop */

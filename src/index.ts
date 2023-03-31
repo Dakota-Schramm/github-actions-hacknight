@@ -1,6 +1,8 @@
-import * as _ from "./types";
-import { Double, ObjectId } from "bson";
+import { Borg } from "./Borg";
 import { BorgError } from "./errors";
+import { getBsonSchema } from "./types/BsonSchema";
+import { ObjectId, Double } from "bson";
+import type * as _ from "./types";
 
 const isin = <T extends object>(obj: T, key: PropertyKey): key is keyof T =>
   key in obj;
@@ -29,11 +31,17 @@ const isin = <T extends object>(obj: T, key: PropertyKey): key is keyof T =>
 
 class BorgObject<
   const TFlags extends _.Flags = ["required", "notNull", "public"],
+  const TOtherProps extends
+    | "passthrough"
+    | "strict"
+    | "strip"
+    | _.Borg = "strip",
   const TShape extends { [key: string]: _.Borg } = {
     [key: string]: _.Borg;
   },
-> extends _.Borg {
+> extends Borg {
   #shape: TShape;
+  #additionalProperties: "passthrough" | "strict" | "strip" | _.Borg = "strip";
   #flags = {
     optional: false,
     nullable: false,
@@ -49,30 +57,40 @@ class BorgObject<
     ) as any;
   }
 
-  static #clone<const TBorg extends B.Object<any, any>>(borg: TBorg): TBorg {
+  static #clone<const TBorg extends BorgObject<any, any, any>>(
+    borg: TBorg,
+  ): TBorg {
     const newShape = {} as { [key: string]: _.Borg };
     for (const key in borg.#shape) newShape[key] = borg.#shape[key]!.copy();
     const clone = new BorgObject(newShape);
     clone.#flags = { ...borg.#flags };
+    clone.#additionalProperties =
+      borg.#additionalProperties instanceof Borg
+        ? borg.#additionalProperties.copy()
+        : borg.#additionalProperties;
     return clone as any;
   }
 
-  get meta(): _.ObjectMeta<TFlags, TShape> {
+  get meta(): _.ObjectMeta<TFlags, TOtherProps, TShape> {
     return Object.freeze({
       kind: "object",
-      shape: this.#shape,
+      borgShape: this.#shape,
       keys: Object.freeze(Object.keys(this.#shape)),
       requiredKeys: Object.freeze(
         Object.keys(this.#shape).filter(
           k => this.#shape[k]!.meta.optional === false,
         ),
       ),
+      additionalProperties:
+        this.#additionalProperties instanceof Borg
+          ? this.#additionalProperties.copy()
+          : this.#additionalProperties,
       ...this.#flags,
     }) as any;
   }
 
   get bsonSchema() {
-    return _.getBsonSchema(this.meta);
+    return getBsonSchema(this.meta);
   }
 
   is(input: unknown): input is ReturnType<this["parse"]> {
@@ -116,9 +134,24 @@ class BorgObject<
         }${this.#flags.nullable ? " or null," : ""} got array`,
       );
     }
+
     const result = {} as any;
+
+    if (this.#additionalProperties === "strict") {
+      for (const key in input) {
+        if (!isin(this.#shape, key)) {
+          throw new BorgError(
+            `OBJECT_ERROR: Unexpected property "${key}"`,
+            undefined,
+            [key],
+          );
+        }
+      }
+    }
+
     for (const key in this.#shape) {
       const schema = this.#shape[key];
+
       if (schema === undefined) {
         throw new BorgError(
           `OBJECT_ERROR: Invalid schema for key "${key}": got undefined`,
@@ -138,6 +171,7 @@ class BorgObject<
         }
         continue;
       }
+
       try {
         const parsed = this.#shape[key]!.parse(input[key]);
         result[key] = parsed;
@@ -160,6 +194,31 @@ class BorgObject<
         }
       }
     }
+
+    if (this.#additionalProperties === "passthrough") {
+      for (const key in input) {
+        if (!isin(this.#shape, key)) {
+          result[key] = input[key];
+        }
+      }
+    }
+
+    if (this.#additionalProperties instanceof Borg) {
+      for (const key in input) {
+        if (!isin(this.#shape, key)) {
+          const parsed = this.#additionalProperties.try(input[key]);
+          if (parsed.ok) result[key] = parsed.value;
+          else {
+            throw new BorgError(
+              `OBJECT_ERROR: Invalid value for extra property "${key}"`,
+              parsed.error,
+              [key],
+            );
+          }
+        }
+      }
+    }
+
     return result;
   }
 
@@ -265,7 +324,7 @@ class BorgObject<
   }
 
   fromBson(
-    input: B.BsonType<BorgObject<TFlags, TShape>>,
+    input: B.BsonType<BorgObject<TFlags, TOtherProps, TShape>>,
   ): _.Parsed<{ [k in keyof TShape]: B.Type<TShape[k]> }, TFlags> {
     if (input === null || input === undefined) return input as any;
     const result = {} as any;
@@ -284,53 +343,61 @@ class BorgObject<
     return result;
   }
 
-  optional(): BorgObject<_.SetOptional<TFlags>, TShape> {
+  optional(): BorgObject<_.SetOptional<TFlags>, TOtherProps, TShape> {
     const copy = this.copy();
     copy.#flags.optional = true;
     return copy as any;
   }
 
-  nullable(): BorgObject<_.SetNullable<TFlags>, TShape> {
+  nullable(): BorgObject<_.SetNullable<TFlags>, TOtherProps, TShape> {
     const clone = this.copy();
     clone.#flags.nullable = true;
     return clone as any;
   }
 
-  nullish(): BorgObject<_.SetNullish<TFlags>, TShape> {
+  nullish(): BorgObject<_.SetNullish<TFlags>, TOtherProps, TShape> {
     const clone = this.copy();
     clone.#flags.optional = true;
     clone.#flags.nullable = true;
     return clone as any;
   }
 
-  required(): BorgObject<_.SetRequired<TFlags>, TShape> {
+  required(): BorgObject<_.SetRequired<TFlags>, TOtherProps, TShape> {
     const clone = this.copy();
     clone.#flags.optional = false;
     return clone as any;
   }
 
-  notNull(): BorgObject<_.SetNotNull<TFlags>, TShape> {
+  notNull(): BorgObject<_.SetNotNull<TFlags>, TOtherProps, TShape> {
     const clone = this.copy();
     clone.#flags.nullable = false;
     return clone as any;
   }
 
-  notNullish(): BorgObject<_.SetNotNullish<TFlags>, TShape> {
+  notNullish(): BorgObject<_.SetNotNullish<TFlags>, TOtherProps, TShape> {
     const clone = this.copy();
     clone.#flags.optional = false;
     clone.#flags.nullable = false;
     return clone as any;
   }
 
-  private(): BorgObject<_.SetPrivate<TFlags>, TShape> {
+  private(): BorgObject<_.SetPrivate<TFlags>, TOtherProps, TShape> {
     const clone = this.copy();
     clone.#flags.private = true;
     return clone as any;
   }
 
-  public(): BorgObject<_.SetPublic<TFlags>, TShape> {
+  public(): BorgObject<_.SetPublic<TFlags>, TOtherProps, TShape> {
     const clone = this.copy();
     clone.#flags.private = false;
+    return clone as any;
+  }
+
+  additionalProperties<T extends "passthrough" | "strict" | "strip" | _.Borg>(
+    additionalProperties: T,
+  ): BorgObject<TFlags, T, TShape> {
+    const clone = this.copy();
+    clone.#additionalProperties = additionalProperties;
     return clone as any;
   }
 
@@ -363,7 +430,7 @@ class BorgArray<
   const TFlags extends _.Flags = ["required", "notNull", "public"],
   const TLength extends _.MinMax = [null, null],
   const TItemSchema extends _.Borg = _.Borg,
-> extends _.Borg {
+> extends Borg {
   #itemSchema: TItemSchema;
   #flags = {
     optional: false,
@@ -378,10 +445,10 @@ class BorgArray<
     this.#itemSchema = itemSchema.copy() as any;
   }
 
-  static #clone<const TBorg extends B.Array<any, any, any>>(
+  static #clone<const TBorg extends BorgArray<any, any, any>>(
     borg: TBorg,
   ): TBorg {
-    const clone = new BorgArray(borg.#itemSchema.copy());
+    const clone = new BorgArray(borg.#itemSchema);
     clone.#flags = { ...borg.#flags };
     clone.#max = borg.#max;
     clone.#min = borg.#min;
@@ -393,13 +460,13 @@ class BorgArray<
       kind: "array",
       maxItems: this.#max,
       minItems: this.#min,
-      itemSchema: this.#itemSchema,
+      itemSchema: this.#itemSchema.copy(),
       ...this.#flags,
     }) as any;
   }
 
   get bsonSchema() {
-    return _.getBsonSchema(this.meta);
+    return getBsonSchema(this.meta);
   }
 
   is(input: unknown): input is ReturnType<this["parse"]> {
@@ -595,7 +662,7 @@ class BorgArray<
     return clone as any;
   }
 
-  minLength<const Min extends number>(
+  minLength<const Min extends number | null>(
     length: Min,
   ): BorgArray<TFlags, [Min, TLength[1]], TItemSchema> {
     const clone = this.copy();
@@ -603,7 +670,7 @@ class BorgArray<
     return clone as any;
   }
 
-  maxLength<const Max extends number>(
+  maxLength<const Max extends number | null>(
     length: Max,
   ): BorgArray<TFlags, [TLength[0], Max], TItemSchema> {
     const clone = this.copy();
@@ -619,19 +686,20 @@ type A2 = typeof A //--> Array<string & { length: 1 }> & { length: 3 }
 --OR--
 type A2 = typeof A //--> [string & { length: 1 }, string & { length: 1 }, string & { length: 1 }]
 */
+
   length<const N extends number | null>(
     length: N,
   ): BorgArray<TFlags, [N, N], TItemSchema>;
-  length<const Min extends number, const Max extends number = Min>(
+  length<const Min extends number | null, const Max extends number | null>(
     minLength: Min,
-    maxLength?: Max,
-  ): BorgArray<TFlags, [Min, Max], TItemSchema> {
+    maxLength: Max,
+  ): BorgArray<TFlags, [Min, Max], TItemSchema>;
+  length(min: number | null, max?: number | null) {
     const clone = this.copy();
-    clone.#min = minLength;
-    clone.#max = maxLength === undefined ? minLength : maxLength;
+    clone.#min = min;
+    clone.#max = max === undefined ? min : max;
     return clone as any;
   }
-
   /* c8 ignore next */
 }
 
@@ -661,7 +729,7 @@ class BorgString<
   const TFlags extends _.Flags = ["required", "notNull", "public"],
   const TLength extends _.MinMax = [null, null],
   const TPattern extends string = ".*",
-> extends _.Borg {
+> extends Borg {
   #flags = {
     optional: false,
     nullable: false,
@@ -675,7 +743,7 @@ class BorgString<
     super();
   }
 
-  static #clone<const TBorg extends B.String<any, any, any>>(
+  static #clone<const TBorg extends BorgString<any, any, any>>(
     borg: TBorg,
   ): TBorg {
     const clone = new BorgString();
@@ -700,7 +768,7 @@ class BorgString<
   }
 
   get bsonSchema() {
-    return _.getBsonSchema(this.meta);
+    return getBsonSchema(this.meta);
   }
 
   is(input: unknown): input is ReturnType<this["parse"]> {
@@ -873,13 +941,14 @@ class BorgString<
   length<const N extends number | null>(
     length: N,
   ): BorgString<TFlags, [N, N], TPattern>;
-  length<
-    const Min extends number | null,
-    const Max extends number | null = Min,
-  >(minLength: Min, maxLength?: Max): BorgString<TFlags, [Min, Max], TPattern> {
+  length<const Min extends number | null, const Max extends number | null>(
+    minLength: Min,
+    maxLength: Max,
+  ): BorgString<TFlags, [Min, Max], TPattern>;
+  length(min: number | null, max?: number | null) {
     const clone = this.copy();
-    clone.#min = minLength;
-    clone.#max = maxLength === undefined ? minLength : maxLength;
+    clone.#min = min;
+    clone.#max = max === undefined ? min : max;
     return clone as any;
   }
 
@@ -923,7 +992,7 @@ class BorgString<
 class BorgNumber<
   const TFlags extends _.Flags = ["required", "notNull", "public"],
   const TRange extends _.MinMax = [null, null],
-> extends _.Borg {
+> extends Borg {
   #flags = {
     optional: false,
     nullable: false,
@@ -936,7 +1005,7 @@ class BorgNumber<
     super();
   }
 
-  static #clone<const TBorg extends B.Number<any, any>>(borg: TBorg): TBorg {
+  static #clone<const TBorg extends BorgNumber<any, any>>(borg: TBorg): TBorg {
     const clone = new BorgNumber();
     clone.#flags = { ...borg.#flags };
     clone.#min = borg.#min;
@@ -954,7 +1023,7 @@ class BorgNumber<
   }
 
   get bsonSchema() {
-    return _.getBsonSchema(this.meta);
+    return getBsonSchema(this.meta);
   }
 
   is(input: unknown): input is ReturnType<this["parse"]> {
@@ -1044,7 +1113,7 @@ class BorgNumber<
     return input as any;
   }
 
-  toBson(input: _.Parsed<number, TFlags>): _.Parsed<Double, TFlags> {
+  toBson(input: _.Parsed<number, TFlags>): _.Parsed<_.Double, TFlags> {
     return typeof input === "number" ? new Double(input) : (input as any);
   }
 
@@ -1161,7 +1230,7 @@ class BorgNumber<
 
 class BorgBoolean<
   const TFlags extends _.Flags = ["required", "notNull", "public"],
-> extends _.Borg {
+> extends Borg {
   #flags = {
     optional: false,
     nullable: false,
@@ -1172,7 +1241,7 @@ class BorgBoolean<
     super();
   }
 
-  static #clone<const TBorg extends B.Boolean<any>>(borg: TBorg): TBorg {
+  static #clone<const TBorg extends BorgBoolean<any>>(borg: TBorg): TBorg {
     const clone = new BorgBoolean();
     clone.#flags = { ...borg.#flags };
     return clone as any;
@@ -1186,7 +1255,7 @@ class BorgBoolean<
   }
 
   get bsonSchema() {
-    return _.getBsonSchema(this.meta);
+    return getBsonSchema(this.meta);
   }
 
   is(input: unknown): input is ReturnType<this["parse"]> {
@@ -1345,8 +1414,8 @@ class BorgBoolean<
 
 class BorgId<
   const TFlags extends _.Flags = ["required", "notNull", "public"],
-  const TFormat extends string | ObjectId = string,
-> extends _.Borg {
+  const TFormat extends string | _.ObjectId = string,
+> extends Borg {
   #flags = {
     optional: false,
     nullable: false,
@@ -1358,7 +1427,7 @@ class BorgId<
     super();
   }
 
-  static #clone<const TBorg extends B.Id<any, any>>(borg: TBorg): TBorg {
+  static #clone<const TBorg extends BorgId<any, any>>(borg: TBorg): TBorg {
     const clone = new BorgId();
     clone.#flags = { ...borg.#flags };
     clone.#format = borg.#format;
@@ -1384,7 +1453,7 @@ class BorgId<
   }
 
   get bsonSchema() {
-    return _.getBsonSchema(this.meta);
+    return getBsonSchema(this.meta);
   }
 
   is(input: unknown): input is ReturnType<this["parse"]> {
@@ -1481,7 +1550,7 @@ class BorgId<
     return ObjectId.createFromHexString(input) as any;
   }
 
-  toBson(input: _.Parsed<TFormat, TFlags>): _.Parsed<ObjectId, TFlags> {
+  toBson(input: _.Parsed<TFormat, TFlags>): _.Parsed<_.ObjectId, TFlags> {
     if (input === undefined || input === null) return input as any;
     if (input instanceof ObjectId) return input as any;
     return ObjectId.createFromHexString(input) as any;
@@ -1551,7 +1620,7 @@ class BorgId<
     return clone as any;
   }
 
-  asObjectId(): BorgId<TFlags, ObjectId> {
+  asObjectId(): BorgId<TFlags, _.ObjectId> {
     const clone = this.copy();
     clone.#format = false as any;
     return clone as any;
@@ -1583,7 +1652,7 @@ class BorgId<
 export class BorgUnion<
   const TFlags extends _.Flags = ["required", "notNull", "public"],
   const TMembers extends _.Borg[] = _.Borg[],
-> extends _.Borg {
+> extends Borg {
   #borgMembers: TMembers;
   #flags = {
     optional: false,
@@ -1604,15 +1673,15 @@ export class BorgUnion<
   }
 
   get meta(): _.UnionMeta<TFlags, TMembers> {
-    return {
+    return Object.freeze({
       kind: "union",
-      borgMembers: this.#borgMembers,
+      borgMembers: this.#borgMembers.map(m => m.copy()),
       ...this.#flags,
-    } as any;
+    }) as any;
   }
 
   get bsonSchema() {
-    return _.getBsonSchema(this.meta);
+    return getBsonSchema(this.meta);
   }
 
   is(input: unknown): input is ReturnType<this["parse"]> {
@@ -1885,8 +1954,15 @@ declare module B {
 
   export type Object<
     TFlags extends _.Flags = _.Flags,
-    TShape extends { [key: string]: _.Borg } = { [key: string]: _.Borg },
-  > = InstanceType<typeof BorgObject<TFlags, TShape>>;
+    TOtherProps extends "strict" | "strip" | "passthrough" | _.Borg =
+      | "strict"
+      | "strip"
+      | "passthrough"
+      | _.Borg,
+    TShape extends { [key: string]: _.Borg } = {
+      [key: string]: _.Borg;
+    },
+  > = InstanceType<typeof BorgObject<TFlags, TOtherProps, TShape>>;
 
   export type Union<
     TFlags extends _.Flags = _.Flags,
@@ -1910,3 +1986,675 @@ declare module B {
 }
 
 export default B;
+
+//////////////////////////////////////////////////////////////////////////////////////////////
+///                                                                                       ///
+///  TTTTTTTTTTTTTTTTTTTT EEEEEEEEEEEEEEEEEEEE     SSSSSSSSSSSSS    TTTTTTTTTTTTTTTTTTTT  ///
+///  T//////////////////T E//////////////////E   SS/////////////SS  T//////////////////T  ///
+///  T//////////////////T E//////////////////E SS/////////////////S T//////////////////T  ///
+///  T///TTTT////TTTT///T E/////EEEEEEEEE////E S///////SSSSS//////S T///TTTT////TTTT///T  ///
+///  T///T  T////T  T///T E/////E        EEEEE S/////SS    SSSSSSS  T///T  T////T  T///T  ///
+///  TTTTT  T////T  TTTTT E/////E              S//////SS            TTTTT  T////T  TTTTT  ///
+///         T////T        E/////E               SS/////SSS                 T////T         ///
+///         T////T        E/////EEEEEEEEE         SS//////SS               T////T         ///
+///         T////T        E//////////////E          SS//////SS             T////T         ///
+///         T////T        E/////EEEEEEEEE             SS//////SS           T////T         ///
+///         T////T        E/////E                       SSS/////SS         T////T         ///
+///         T////T        E/////E                         SS//////S        T////T         ///
+///         T////T        E/////E        EEEEE  SSSSSSS    SS/////S        T////T         ///
+///       TT//////TT      E/////EEEEEEEEE////E S//////SSSSS///////S      TT//////TT       ///
+///       T////////T      E//////////////////E S/////////////////SS      T////////T       ///
+///       T////////T      E//////////////////E  SS/////////////SS        T////////T       ///
+///       TTTTTTTTTT      EEEEEEEEEEEEEEEEEEEE    SSSSSSSSSSSSS          TTTTTTTTTT       ///
+///                                                                                       ///
+/////////////////////////////////////////////////////////////////////////////////////////////
+
+/* c8 ignore start */
+// @ts-ignore - vitest handles this import.meta check
+if (import.meta.vitest) {
+  // @ts-ignore - vitest handles this top-level await
+  const [{ describe, expect, it }, { Double }] = await Promise.all([
+    import("vitest"),
+    import("bson"),
+  ]);
+
+  type TestCase = {
+    name: string;
+    basecase: any;
+    schema: () => _.Borg;
+    valid: any[];
+    invalid: any[];
+    bsonCheck: (value: unknown) => boolean;
+  };
+
+  describe("BorgSchemas", () => {
+    const testCases = [
+      {
+        name: "BorgString",
+        basecase: "test",
+        schema: () => B.string(),
+        valid: ["", "abc"],
+        invalid: [1, undefined, null, {}],
+        bsonCheck: (value: unknown) => typeof value === "string",
+      },
+      {
+        name: "BorgString with min/max",
+        basecase: "test",
+        schema: () => B.string().minLength(0).maxLength(10),
+        valid: ["", "abc", "1234567890"],
+        invalid: ["12345678901", -1, 11, undefined, null],
+        bsonCheck: (value: unknown) => typeof value === "string",
+      },
+      {
+        name: "BorgString with exact length",
+        basecase: "test--test",
+        schema: () => B.string().length(10),
+        valid: ["1234567890", "abcdefghij"],
+        invalid: ["", "12", "12345678901", -1, 11, undefined, null],
+        bsonCheck: (value: unknown) => typeof value === "string",
+      },
+      {
+        name: "BorgString with length range",
+        basecase: "test",
+        schema: () => B.string().length(0, 10),
+        valid: ["", "abc", "1234567890"],
+        invalid: ["12345678901", -1, 11, undefined, null],
+        bsonCheck: (value: unknown) => typeof value === "string",
+      },
+      {
+        name: "BorgString with pattern",
+        basecase: "C:\\Users\\abc",
+        schema: () => B.string().pattern("C:\\\\Users\\\\.+"),
+        valid: ["C:\\Users\\abc", "C:\\Users\\123"],
+        invalid: ["C:\\\\Users\\abc\\def", "C:\\Users\\", undefined, null],
+        bsonCheck: (value: unknown) => typeof value === "string",
+      },
+      {
+        name: "BorgString with pattern and range",
+        basecase: "C:\\Users\\abc",
+        schema: () =>
+          B.string().minLength(0).maxLength(14).pattern("C:\\\\Users\\\\.+"),
+        valid: ["C:\\Users\\abc", "C:\\Users\\123"],
+        invalid: [
+          "C:\\\\Users\\abc\\def",
+          "C:\\Users\\",
+          "C:\\Users\\abc\\def",
+          undefined,
+          null,
+        ],
+        bsonCheck: (value: unknown) => typeof value === "string",
+      },
+      {
+        name: "BorgNumber",
+        basecase: 5,
+        schema: () => B.number(),
+        valid: [0, 3.14, -42],
+        invalid: ["1", undefined, null],
+        bsonCheck: (value: unknown) => value instanceof Double,
+      },
+      {
+        name: "BorgNumber with min/max",
+        basecase: 5,
+        schema: () => B.number().min(0).max(10),
+        valid: [0, 3.14, 10],
+        invalid: [-1, 11, "1", undefined, null],
+        bsonCheck: (value: unknown) => value instanceof Double,
+      },
+      {
+        name: "BorgNumber with range",
+        basecase: 5,
+        schema: () => B.number().range(0, 10),
+        valid: [0, 3.14, 10],
+        invalid: [-1, 11, "1", undefined, null],
+        bsonCheck: (value: unknown) => value instanceof Double,
+      },
+      {
+        name: "BorgBoolean",
+        basecase: true,
+        schema: () => B.boolean(),
+        valid: [true, false],
+        invalid: ["true", 1, undefined, null],
+        bsonCheck: (value: unknown) => typeof value === "boolean",
+      },
+      {
+        name: "BorgArray",
+        basecase: [1, 2, 3],
+        schema: () => B.array(B.number()),
+        valid: [[], [1, 2, 3]],
+        invalid: ["1", 1, undefined, null],
+        bsonCheck: (value: unknown) =>
+          Array.isArray(value) && value.every(v => v instanceof Double),
+      },
+      {
+        name: "BorgArray with min/max",
+        basecase: [1, 2, 3],
+        schema: () => B.array(B.number()).minLength(0).maxLength(10),
+        valid: [[], [1, 2, 3]],
+        invalid: [[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], "1", 1, undefined, null],
+        bsonCheck: (value: unknown) =>
+          Array.isArray(value) && value.every(v => v instanceof Double),
+      },
+      {
+        name: "BorgArray with length",
+        basecase: [1, 2, 3],
+        schema: () => B.array(B.number()).length(0, 10),
+        valid: [[], [1, 2, 3]],
+        invalid: [[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], "1", 1, undefined, null],
+        bsonCheck: (value: unknown) =>
+          Array.isArray(value) && value.every(v => v instanceof Double),
+      },
+      {
+        name: "BorgObject",
+        basecase: { a: 1, b: 2, c: 3 },
+        schema: () =>
+          B.object({
+            a: B.number(),
+            b: B.number(),
+            c: B.number(),
+          }),
+        valid: [
+          { a: 1, b: 2, c: 3 },
+          { a: 1, b: 2, c: 3, d: 4 },
+          { a: 1, b: 2, c: 3, d: "", e: null, f: undefined, g: [], h: 0 },
+        ],
+        invalid: [
+          { a: 1, b: 2 },
+          { a: 1, b: 2, c: "3" },
+          "1",
+          1,
+          undefined,
+          null,
+        ],
+        bsonCheck: (value: unknown) =>
+          typeof value === "object" &&
+          value !== null &&
+          "a" in value &&
+          value.a instanceof Double &&
+          "b" in value &&
+          value.b instanceof Double &&
+          "c" in value &&
+          value.c instanceof Double,
+      },
+      {
+        name: "BorgObject with strict extra keys",
+        basecase: { a: 1, b: 2, c: 3 },
+        schema: () =>
+          B.object({
+            a: B.number(),
+            b: B.number(),
+            c: B.number(),
+          }).additionalProperties("strict"),
+        valid: [{ a: 1, b: 2, c: 3 }],
+        invalid: [
+          { a: 1, b: 2, c: 3, d: 4 },
+          { a: 1, b: 2, c: 3, d: "", e: null, f: undefined, g: [], h: 0 },
+          { a: 1, b: 2 },
+          { a: 1, b: 2, c: "3" },
+          "1",
+          1,
+          undefined,
+          null,
+        ],
+        bsonCheck: (value: unknown) =>
+          typeof value === "object" &&
+          value !== null &&
+          "a" in value &&
+          value.a instanceof Double &&
+          "b" in value &&
+          value.b instanceof Double &&
+          "c" in value &&
+          value.c instanceof Double,
+      },
+      {
+        name: "BorgObject with passthrough extra keys",
+        basecase: { a: 1, b: 2, c: 3 },
+        schema: () =>
+          B.object({
+            a: B.number(),
+            b: B.number(),
+            c: B.number(),
+          }).additionalProperties("passthrough"),
+        valid: [
+          { a: 1, b: 2, c: 3, d: 4 },
+          { a: 1, b: 2, c: 3, d: "", e: null, f: undefined, g: [], h: 0 },
+        ],
+        invalid: [
+          { a: 1, b: 2 },
+          { a: 1, b: 2, c: "3" },
+          "1",
+          1,
+          undefined,
+          null,
+        ],
+        bsonCheck: (value: unknown) =>
+          typeof value === "object" &&
+          value !== null &&
+          "a" in value &&
+          value.a instanceof Double &&
+          "b" in value &&
+          value.b instanceof Double &&
+          "c" in value &&
+          value.c instanceof Double,
+      },
+      {
+        name: "BorgObject with validated extra keys",
+        basecase: { a: 1, b: 2, c: 3 },
+        schema: () =>
+          B.object({
+            a: B.number(),
+            b: B.number(),
+            c: B.number(),
+          }).additionalProperties(B.string().nullable().optional()),
+        valid: [
+          { a: 1, b: 2, c: 3, d: "4" },
+          { a: 1, b: 2, c: 3, d: "", e: null, f: undefined, g: "[]", h: "0" },
+        ],
+        invalid: [
+          { a: 1, b: 2, c: 3, d: 4 },
+          { a: 1, b: 2 },
+          { a: 1, b: 2, c: "3" },
+          "1",
+          1,
+          undefined,
+          null,
+        ],
+        bsonCheck: (value: unknown) =>
+          typeof value === "object" &&
+          value !== null &&
+          "a" in value &&
+          value.a instanceof Double &&
+          "b" in value &&
+          value.b instanceof Double &&
+          "c" in value &&
+          value.c instanceof Double,
+      },
+      {
+        name: "BorgObject with optional and nullable properties",
+        basecase: { a: 1, b: 2, c: 3 },
+        schema: () =>
+          B.object({
+            a: B.number(),
+            b: B.number().nullable(),
+            c: B.number().optional(),
+          }),
+        valid: [
+          { a: 1, b: 2, c: 3 },
+          { a: 1, b: 2 },
+          { a: 1, b: 2, c: undefined },
+          { a: 1, b: null, c: 3 },
+          { a: 1, b: null },
+          { a: 1, b: 2, c: 3, d: 4 },
+          { a: 1, b: 2, c: 3, d: "", e: null, f: undefined, g: [], h: 0 },
+        ],
+        invalid: [
+          { a: 1, b: 2, c: "3" },
+          { a: 1, b: 2, c: null },
+          { a: 1, c: 3 },
+          { a: 1, c: undefined },
+          "1",
+          1,
+          undefined,
+          null,
+        ],
+        bsonCheck: (value: unknown) =>
+          typeof value === "object" &&
+          value !== null &&
+          "a" in value &&
+          value.a instanceof Double &&
+          "b" in value &&
+          (value.b === null || value.b instanceof Double) &&
+          "c" in value
+            ? value.c instanceof Double
+            : true,
+      },
+    ] satisfies TestCase[];
+
+    testCases.forEach(
+      ({ name, schema, valid, invalid, bsonCheck, basecase }) => {
+        describe(name, () => {
+          it("should parse valid values and throw for invalid values", () => {
+            const borg = schema();
+            const message = JSON.stringify(borg.meta, undefined, 2);
+            valid.forEach(value => {
+              const parsed = borg.parse(value);
+              if (borg.meta.kind === "object") {
+                //TODO: This `for` loop will need to change for the `exactOptionalProperties` feature, if it is implemented.
+                for (const key of borg.meta.keys) {
+                  if (value[key as keyof typeof value] !== undefined) {
+                    expect(parsed).toHaveProperty(
+                      key,
+                      value[key as keyof typeof value],
+                    );
+                  } else {
+                    expect(parsed["c" as keyof typeof parsed]).toBeUndefined();
+                  }
+                }
+                const unknownKeys = Object.keys(value).filter(
+                  v =>
+                    borg.meta.kind === "object" &&
+                    !borg.meta.keys.includes(v as keyof typeof value),
+                );
+                for (const key of unknownKeys) {
+                  if (
+                    borg.meta.additionalProperties === "strict" ||
+                    borg.meta.additionalProperties === "strip"
+                  ) {
+                    expect(parsed).not.toHaveProperty(key);
+                  } else {
+                    expect(parsed).toHaveProperty(key);
+                    expect(parsed[key as keyof typeof parsed]).toEqual(
+                      borg.meta.additionalProperties === "passthrough"
+                        ? value[key as keyof typeof value]
+                        : borg.meta.additionalProperties.parse(
+                            value[key as keyof typeof value],
+                          ),
+                    );
+                  }
+                }
+              } else {
+                expect(
+                  parsed,
+                  `Expected ${JSON.stringify(parsed)} to be ${JSON.stringify(
+                    value,
+                  )} using schema: ${message}`,
+                ).toEqual(value);
+              }
+            });
+
+            invalid.forEach(value => {
+              expect(
+                () => borg.parse(value),
+                `Expected ${JSON.stringify(
+                  value,
+                )} to throw for schema: ${message}`,
+              ).toThrow(BorgError);
+            });
+          });
+
+          it("should copy correctly", () => {
+            const borg = schema().optional();
+            const borg2 = borg.copy();
+            expect(borg2).toEqual(borg);
+            expect(borg2).not.toBe(borg);
+            expect(borg.meta.optional).toBe(true);
+            expect(borg2.meta.optional).toBe(true);
+          });
+
+          it("should assert correctly", () => {
+            const borg = schema();
+            const message = JSON.stringify(borg.meta, undefined, 2);
+            valid.forEach(value => {
+              const ok = borg.is(value);
+              expect(
+                ok,
+                `Expected ${JSON.stringify(
+                  value,
+                )} to be pass using schema: ${message}`,
+              ).toBe(true);
+            });
+
+            invalid.forEach(value => {
+              const ok = borg.is(value);
+              expect(
+                ok,
+                `Expected ${JSON.stringify(
+                  value,
+                )} to fail using schema: ${message}`,
+              ).toBe(false);
+            });
+          });
+
+          it("should parse without throwing", () => {
+            const borg = schema();
+
+            valid.forEach(value => {
+              const parsed = borg.try(value);
+              const message = JSON.stringify(borg.meta, undefined, 2);
+              expect(
+                parsed.ok,
+                `Expected ${JSON.stringify(
+                  value,
+                )} to be pass using schema: ${message}`,
+              ).toBe(true);
+              if (parsed.ok) {
+                if (borg.meta.kind === "object") {
+                  //TODO: This `for` loop will need to change for the `exactOptionalProperties` feature, if it is implemented.
+                  for (const key of borg.meta.keys) {
+                    if (value[key as keyof typeof value] !== undefined) {
+                      expect(parsed.value).toHaveProperty(
+                        key,
+                        value[key as keyof typeof value],
+                      );
+                    } else {
+                      expect(
+                        parsed.value["c" as keyof typeof parsed.value],
+                      ).toBeUndefined();
+                    }
+                  }
+                  const unknownKeys = Object.keys(value).filter(
+                    v =>
+                      borg.meta.kind === "object" &&
+                      !borg.meta.keys.includes(v as keyof typeof value),
+                  );
+                  for (const key of unknownKeys) {
+                    if (
+                      borg.meta.additionalProperties === "strict" ||
+                      borg.meta.additionalProperties === "strip"
+                    ) {
+                      expect(parsed).not.toHaveProperty(key);
+                    } else {
+                      expect(parsed).toHaveProperty(key);
+                      expect(parsed[key as keyof typeof parsed]).toEqual(
+                        borg.meta.additionalProperties === "passthrough"
+                          ? value[key as keyof typeof value]
+                          : borg.meta.additionalProperties.parse(
+                              value[key as keyof typeof value],
+                            ),
+                      );
+                    }
+                  }
+                } else {
+                  expect(
+                    parsed.value,
+                    `Expected ${JSON.stringify(
+                      parsed.value,
+                    )} to be ${JSON.stringify(value)} using schema: ${message}`,
+                  ).toEqual(value);
+                }
+              }
+            });
+
+            invalid.forEach(value => {
+              const parsed = borg.try(value);
+              const message = JSON.stringify(borg.meta, undefined, 2);
+              expect(
+                parsed.ok,
+                `Expected ${JSON.stringify(
+                  value,
+                )} to fail using schema: ${message}`,
+              ).toBe(false);
+              if (!parsed.ok)
+                expect(
+                  parsed.error,
+                  `Expected ${JSON.stringify(value)} to throw ${
+                    parsed.error
+                  } for schema: ${message}`,
+                ).toBeInstanceOf(BorgError);
+            });
+          });
+
+          it("should convert to BSON correctly", () => {
+            const borg = schema();
+            valid.forEach(value => {
+              //@ts-expect-error - testing sucks with TS :()
+              const bson = borg.toBson(value);
+              expect(bsonCheck(bson), `${bsonCheck.toString()}`).toBe(true);
+              const reverted = borg.fromBson(bson as never);
+              expect(
+                reverted,
+                `Expected ${JSON.stringify(bson)} to revert to ${JSON.stringify(
+                  bson,
+                )}`,
+              ).toEqual(value);
+            });
+          });
+
+          it.todo("should print the correct JSON schema", () => {});
+
+          it.todo("should serialize and deserialize", () => {
+            const borg = schema();
+            valid.forEach(value => {
+              const serialized = borg.serialize(value as never);
+              //@ts-expect-error - not yet implemented
+              expect(serialized.data).toEqual(serializedValue);
+              //@ts-expect-error - not yet implemented
+              expect(serialized.meta).toEqual(expectedMeta);
+              //@ts-expect-error - not yet implemented
+              const deserialized = borg.deserialize(serialized);
+              expect(deserialized).toEqual(value);
+            });
+          });
+
+          it("should be optional when marked as such", () => {
+            const borg = schema().optional();
+            const parsed = borg.parse(undefined);
+            expect(
+              parsed,
+              `Expected undefined to pass using schema: ${JSON.stringify(
+                borg.meta,
+                undefined,
+                2,
+              )}`,
+            ).toBeUndefined();
+          });
+
+          it("should be nullable when marked as such", () => {
+            const borg = schema().nullable();
+            const parsed = borg.parse(null);
+            expect(
+              parsed,
+              `Expected null to pass using schema: ${JSON.stringify(
+                borg.meta,
+                undefined,
+                2,
+              )}`,
+            ).toBeNull();
+          });
+
+          it("should be optional and nullable when marked as such", () => {
+            const borg = schema().optional().nullable();
+            const parsed = borg.parse(undefined);
+            const parsed2 = borg.parse(null);
+            expect(
+              parsed,
+              `Expected undefined to pass using schema: ${JSON.stringify(
+                borg.meta,
+                undefined,
+                2,
+              )}`,
+            ).toBeUndefined();
+            expect(
+              parsed2,
+              `Expected null to pass using schema: ${JSON.stringify(
+                borg.meta,
+                undefined,
+                2,
+              )}`,
+            ).toBeNull();
+          });
+
+          it("should be nullish when marked as such", () => {
+            const borg = schema().nullish();
+            const parsed = borg.parse(undefined);
+            const parsed2 = borg.parse(null);
+            expect(
+              parsed,
+              `Expected undefined to pass using schema: ${JSON.stringify(
+                borg.meta,
+                undefined,
+                2,
+              )}`,
+            ).toBeUndefined();
+            expect(
+              parsed2,
+              `Expected null to pass using schema: ${JSON.stringify(
+                borg.meta,
+                undefined,
+                2,
+              )}`,
+            ).toBeNull();
+          });
+
+          it("should parse as normal when marked private", () => {
+            const borg = schema().private();
+            valid.forEach(value => {
+              const parsed = borg.parse(value);
+              expect(
+                parsed,
+                `Expected ${JSON.stringify(
+                  value,
+                )} to pass using schema: ${JSON.stringify(
+                  borg.meta,
+                  undefined,
+                  2,
+                )}`,
+              ).toEqual(value);
+            });
+
+            invalid.forEach(value => {
+              expect(
+                () => borg.parse(value),
+                `Expected ${JSON.stringify(
+                  value,
+                )} to fail using schema: ${JSON.stringify(
+                  borg.meta,
+                  undefined,
+                  2,
+                )}`,
+              ).toThrow(BorgError);
+            });
+          });
+
+          it("should not matter in what order the following are chained: `optional`, `private`, `required`, `notNull`, `nullish`, notNullish`, `public`, and `nullable`", () => {
+            const borg = schema()
+              .optional() // optional, notNull, public
+              .private() // optional, notNull, private
+              .required() // required, notNull, private
+              .notNull() // required, notNull, private
+              .nullish() // optional, nullable, private
+              .public() // optional, nullable, public
+              .notNullish() // required, notNull, public
+              .nullable(); // required, nullable, public
+
+            expect(borg.meta).toHaveProperty("optional", false);
+            expect(borg.meta).toHaveProperty("nullable", true);
+            expect(borg.meta).toHaveProperty("private", false);
+
+            expect(borg.parse(basecase)).toEqual(basecase);
+            expect(borg.parse(null)).toBeNull();
+            expect(() => borg.parse(undefined)).toThrow(BorgError);
+
+            const borg2 = schema()
+              .notNullish() // required, notNull, public
+              .nullable() // required, nullable, public
+              .public() // required, nullable, public
+              .nullish() // optional, nullable, public
+              .notNull() // optional, notNull, public
+              .required() // required, notNull, public
+              .private() // required, notNull, private
+              .optional(); // optional, notNull, private
+
+            expect(borg2.meta).toHaveProperty("optional", true);
+            expect(borg2.meta).toHaveProperty("nullable", false);
+            expect(borg2.meta).toHaveProperty("private", true);
+
+            expect(borg2.parse(basecase)).toEqual(basecase);
+            expect(() => borg2.parse(null)).toThrow(BorgError);
+            expect(borg2.parse(undefined)).toBeUndefined();
+          });
+        });
+      },
+    );
+  });
+}
+/* c8 ignore stop */

@@ -1,5 +1,18 @@
-import { Borg, Type } from "./Borg";
+import type { Borg, Type } from "../Borg";
 
+/* 
+type StripSchemasDeep<T> = T extends Extract<Meta, { kind: "object" }>
+  ? {
+      [K in keyof T["borgShape"]]: StripSchemasDeep<T["borgShape"][K]["meta"]>;
+    }
+  : T extends Extract<Meta, { kind: "array" }>
+  ? StripSchemasDeep<T["borgItems"]["meta"]>[]
+  : T extends Extract<Meta, { kind: "union" }>
+  ? Array<StripSchemasDeep<T["borgMembers"][number]["meta"]>>[number]
+  : T extends Borg
+  ? T["meta"]
+  : T;
+ */
 type RequirdKeys<TObj extends object> = TObj extends {
   [_ in infer K]: any;
 }
@@ -17,6 +30,8 @@ export type RequiredKeysArray<TShape extends { [key: string]: Borg }> =
 
 export type PrettyPrint<T> = T extends infer U extends object
   ? { [K in keyof U]: U[K] }
+  : T extends object
+  ? never
   : T;
 
 type RequiredFlag = "required" | "optional";
@@ -130,3 +145,16 @@ type SetFLags<TFlags extends Flags, TOps extends FlagOps> = [
       Op_2 extends Flags[2] ? Op_2 : TFlag_2,
     ]
   : never;
+
+/* c8 ignore start */
+
+//@ts-expect-error - Vite handles this import.meta check
+if (import.meta.vitest) {
+  //@ts-expect-error - Vite handles this top-level await
+  const { describe, it, expect } = await import("vitest");
+  describe("Type Utilities", () => {
+    it.todo("should produce the expected types");
+  });
+}
+
+/* c8 ignore stop */

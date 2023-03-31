@@ -1,5 +1,5 @@
-import { BorgError } from "src/errors";
-import { Meta } from "./Meta";
+import type { BorgError } from "src/errors";
+import type { Meta } from "./types/Meta";
 
 /////////////////////////////////////////////////////////////////////////////////////////////
 ///                                                                                       ///
@@ -25,6 +25,13 @@ import { Meta } from "./Meta";
 
 /*TODO: type BorgOptions = { exactOptionalProperties?: Boolean | undefined;} */
 export abstract class Borg {
+  constructor() {
+    if (new.target === Borg) {
+      throw new TypeError(
+        "Borg is an abstract class and cannot be instantiated directly",
+      );
+    }
+  }
   abstract get meta(): Meta;
   abstract get bsonSchema(): any;
   abstract copy(): Borg;
@@ -89,3 +96,19 @@ export type TryResult<TValue, TMeta, TSerialized> =
       ok: false;
       error: BorgError;
     };
+
+/* c8 ignore start */
+
+//@ts-expect-error - Vite handles this import.meta check
+if (import.meta.vitest) {
+  //@ts-expect-error - Vite handles this top-level await
+  const { describe, it, expect } = await import("vitest");
+  describe("Borg", () => {
+    it("should not be instantiated", () => {
+      //@ts-expect-error - Borg is abstract
+      expect(() => new Borg()).toThrowError(TypeError);
+    });
+  });
+}
+
+/* c8 ignore stop */
