@@ -1,6 +1,6 @@
 import { Borg } from "./Borg";
 import { BorgError } from "./errors";
-import { stripSchemasDeep, getBsonSchema } from "./utils";
+import { getBsonSchema } from "./utils";
 import { Double } from "bson";
 import type * as _ from "./types";
 
@@ -114,14 +114,13 @@ export class BorgNumber<
 
   try(
     input: unknown,
-  ): _.TryResult<_.Type<this>, this["meta"], _.Serialized<this>> {
+  ): _.TryResult<_.Type<this>, this["meta"]> {
     try {
       const value = this.parse(input) as any;
       return {
         value,
         ok: true,
         meta: this.meta,
-        serialize: () => this.serialize.call(this, value),
       } as any;
     } catch (e) {
       if (e instanceof BorgError) return { ok: false, error: e } as any;
@@ -135,22 +134,6 @@ export class BorgNumber<
           ),
         } as any;
     }
-  }
-
-  serialize(input: _.Type<this>): {
-    data: _.Sanitized<BorgNumber<TFlags, TRange>, TFlags>;
-    meta: _.NumberMeta<TFlags, TRange>;
-  } {
-    if (this.#flags.private) {
-      throw new BorgError(
-        `NUMBER_ERROR: Cannot serialize private number field ${input}`,
-      );
-    }
-    return { data: input as any, meta: stripSchemasDeep(this.meta) };
-  }
-
-  deserialize(input: _.Serialized<this>): _.Sanitized<_.Type<this>, TFlags> {
-    return input.data as any;
   }
 
   toBson(input: _.Parsed<number, TFlags>): _.Parsed<_.Double, TFlags> {

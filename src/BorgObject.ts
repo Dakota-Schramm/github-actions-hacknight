@@ -1,6 +1,6 @@
 import { Borg } from "./Borg";
 import { BorgError } from "./errors";
-import { isin, stripSchemasDeep, getBsonSchema } from "./utils";
+import { isin, getBsonSchema } from "./utils";
 import type * as _ from "./types";
 
 /////////////////////////////////////////////////////////////////////////////////////////////
@@ -221,14 +221,13 @@ export class BorgObject<
 
   try(
     input: unknown,
-  ): _.TryResult<_.Type<this>, this["meta"], _.Serialized<this>> {
+  ): _.TryResult<_.Type<this>, this["meta"]> {
     try {
       const value = this.parse(input) as any;
       return {
         value,
         ok: true,
         meta: this.meta,
-        serialize: () => this.serialize.call(this, value),
       } as any;
     } catch (e) {
       if (e instanceof BorgError) return { ok: false, error: e } as any;
@@ -244,54 +243,6 @@ export class BorgObject<
     }
   }
 
-  serialize(input: _.Type<this>): {
-    data: _.Sanitized<{ [k in keyof TShape]: _.Serialized<TShape[k]> }, TFlags>;
-    meta: _.ObjectMeta<TFlags, TOtherProps, TShape>;
-  } {
-    if (this.#flags.private) {
-      throw new BorgError(
-        "OBJECT_ERROR(serialize): Cannot serialize private schema",
-      );
-    }
-    if (input === null || input === undefined)
-      return { data: input as any, meta: stripSchemasDeep(this.meta) };
-    const result = {} as any;
-    for (const key in this.#borgShape) {
-      if (!isin(input, key)) continue;
-      const schema = this.#borgShape[key];
-      if (schema === undefined)
-        throw new BorgError(
-          `SCHEMA_ERROR(serialize): Invalid schema for key "${key}": got undefined`,
-          undefined,
-          [key],
-        );
-      if (schema.meta.private) continue;
-      result[key] = schema.serialize(input[key]);
-    }
-    return { data: result, meta: stripSchemasDeep(this.meta) };
-  }
-  //TODO: Fix deserialization & deserialization implementations
-
-  deserialize(
-    input: _.Serialized<this>,
-  ): _.Sanitized<{ [k in keyof TShape]: _.Deserialized<TShape[k]> }, TFlags> {
-    if (input.data === null || input.data === undefined)
-      return input.data as any;
-    const result = {} as any;
-    for (const key in this.#borgShape) {
-      if (!isin(input.data, key)) continue;
-      const schema = this.#borgShape[key];
-      if (schema === undefined) {
-        throw new BorgError(
-          `SCHEMA_ERROR(deserialize): Invalid schema for key "${key}": got undefined`,
-          undefined,
-          [key],
-        );
-      }
-      result[key] = schema.deserialize(input.data[key]);
-    }
-    return result;
-  }
   //TODO: Should we be treating 'undefined' in any special way when converting to BSON?
   toBson<
     const TInput extends Partial<

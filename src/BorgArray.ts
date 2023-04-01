@@ -1,6 +1,6 @@
 import { Borg } from "./Borg";
 import { BorgError } from "./errors";
-import { stripSchemasDeep, getBsonSchema } from "./utils";
+import { getBsonSchema } from "./utils";
 import type * as _ from "./types";
 
 /////////////////////////////////////////////////////////////////////////////////////////////
@@ -141,14 +141,13 @@ export class BorgArray<
 
   try(
     input: unknown,
-  ): _.TryResult<_.Type<this>, this["meta"], _.Serialized<this>> {
+  ): _.TryResult<_.Type<this>, this["meta"]> {
     try {
       const value = this.parse(input) as any;
       return {
         value,
         ok: true,
         meta: this.meta,
-        serialize: () => this.serialize.call(this, value),
       } as any;
     } catch (e) {
       if (e instanceof BorgError) return { ok: false, error: e } as any;
@@ -160,36 +159,6 @@ export class BorgArray<
           ),
         } as any;
     }
-  }
-
-  serialize(input: _.Type<this>): {
-    data: _.Sanitized<Array<_.Serialized<TItemSchema>>, TFlags>;
-    meta: _.ArrayMeta<TFlags, TLength, TItemSchema>;
-  } {
-    if (this.#flags.private) {
-      throw new BorgError(
-        "ARRAY_ERROR(serialize): Cannot serialize private schema",
-      );
-    }
-    if (input === null || input === undefined)
-      return { data: input as any, meta: stripSchemasDeep(this.meta) };
-    const result = new Array(input.length) as any;
-    for (let i = 0; i < input.length; i++) {
-      result[i] = this.#borgItems.serialize(input[i]);
-    }
-    return { data: result, meta: stripSchemasDeep(this.meta) };
-  }
-
-  deserialize(
-    input: _.Serialized<this>,
-  ): _.Sanitized<Array<_.Deserialized<TItemSchema>>, TFlags> {
-    if (input.data === null || input.data === undefined)
-      return input.data as any;
-    const result = new Array(input.data.length) as any;
-    for (let i = 0; i < input.data.length; i++) {
-      result[i] = this.#borgItems.deserialize(input.data[i]);
-    }
-    return result;
   }
 
   toBson(

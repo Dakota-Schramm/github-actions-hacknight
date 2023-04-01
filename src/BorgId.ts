@@ -1,6 +1,6 @@
 import { Borg } from "./Borg";
 import { BorgError } from "./errors";
-import { stripSchemasDeep, getBsonSchema } from "./utils";
+import { getBsonSchema } from "./utils";
 import { ObjectId } from "bson";
 import type * as _ from "./types";
 
@@ -128,14 +128,13 @@ export class BorgId<
 
   try(
     input: unknown,
-  ): _.TryResult<_.Type<this>, this["meta"], _.Serialized<this>> {
+  ): _.TryResult<_.Type<this>, this["meta"]> {
     try {
       const value = this.parse(input) as any;
       return {
         value,
         ok: true,
         meta: this.meta,
-        serialize: () => this.serialize.call(this, value),
       } as any;
     } catch (e) {
       if (e instanceof BorgError) return { ok: false, error: e } as any;
@@ -147,35 +146,6 @@ export class BorgId<
           ),
         } as any;
     }
-  }
-
-  serialize(input: _.Type<this>): {
-    data: _.Sanitized<_.Type<BorgId<TFlags, TFormat>>, TFlags>;
-    meta: _.IdMeta<TFlags, TFormat>;
-  } {
-    if (this.#flags.private) {
-      throw new BorgError(`ID_ERROR: Cannot serialize private ID field`);
-    }
-    if (input === undefined || input === null || typeof input === "string") {
-      return {
-        data: input as any,
-        meta: stripSchemasDeep(this.meta),
-      };
-    }
-    return {
-      data: input.toHexString() as any,
-      meta: stripSchemasDeep(this.meta),
-    };
-  }
-
-  deserialize(input: _.Serialized<this>): _.Sanitized<_.Type<this>, TFlags> {
-    if (input.data === undefined || input.data === null)
-      return input.data as any;
-    if (typeof input.data === "string" && this.#format)
-      return input.data as any;
-    return input.data instanceof ObjectId
-      ? input.data
-      : (ObjectId.createFromHexString(input.data) as any);
   }
 
   toBson(input: _.Parsed<TFormat, TFlags>): _.Parsed<_.ObjectId, TFlags> {

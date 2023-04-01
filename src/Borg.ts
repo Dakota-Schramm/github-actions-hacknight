@@ -36,10 +36,8 @@ export abstract class Borg {
   abstract get bsonSchema(): any;
   abstract copy(): Borg;
   abstract parse(input: unknown): unknown;
-  abstract try(input: unknown): TryResult<unknown, Meta, unknown>;
+  abstract try(input: unknown): TryResult<unknown, Meta>;
   abstract is(input: unknown): input is Type<this>;
-  abstract serialize(input: any): any;
-  abstract deserialize(input: any): any;
   abstract toBson(input: any): any;
   abstract fromBson(input: any): any;
   abstract private(): Borg;
@@ -60,16 +58,6 @@ export type BorgModel<
 > = {
   createFromRequest: (input: Type<TInputSchema>) => Type<TOutputSchema>;
   sanitizeResponse: (input: TServerModel) => Type<TOutputSchema>;
-  serializeInput: (parsedInput: Type<TInputSchema>) => Serialized<TInputSchema>;
-  deserializeInput: (
-    serializedInput: Serialized<TInputSchema>,
-  ) => Type<TInputSchema>;
-  serializeOutput: (
-    parsedOutput: Type<TOutputSchema>,
-  ) => Serialized<TOutputSchema>;
-  deserializeOutput: (
-    serializedOutput: Serialized<TOutputSchema>,
-  ) => Type<TOutputSchema>;
   parseInput: (input: unknown) => Type<TInputSchema>;
   parseOutput: (input: unknown) => Type<TOutputSchema>;
 };
@@ -80,17 +68,12 @@ export type Type<TBorg extends { parse: (arg0: unknown) => any }> = ReturnType<
 export type BsonType<TBorg extends { toBson: (arg0: any) => any }> = ReturnType<
   TBorg["toBson"]
 >;
-export type Serialized<TBorg extends { serialize: (arg0: any) => any }> =
-  ReturnType<TBorg["serialize"]>;
-export type Deserialized<TBorg extends { deserialize: (arg0: any) => any }> =
-  ReturnType<TBorg["deserialize"]>;
 
-export type TryResult<TValue, TMeta, TSerialized> =
+export type TryResult<TValue, TMeta> =
   | {
       ok: true;
       value: TValue;
       meta: TMeta;
-      serialize: () => TSerialized;
     }
   | {
       ok: false;

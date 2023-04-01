@@ -30,61 +30,6 @@ import type * as _ from "./types";
 ///                                                                                       ///
 /////////////////////////////////////////////////////////////////////////////////////////////
 
-function makeBorg<TSchema extends BorgObject<_.Flags>>(
-  schema: TSchema,
-): _.BorgModel<TSchema>;
-function makeBorg<
-  TSchema extends BorgObject<_.Flags>,
-  TServerModel extends object,
->(
-  schema: TSchema,
-  transformInput: (input: B.Type<TSchema>) => TServerModel,
-): _.BorgModel<TSchema, TServerModel>;
-function makeBorg<
-  TInputSchema extends BorgObject<_.Flags>,
-  TServerModel extends object,
-  TOutputSchema extends BorgObject<_.Flags>,
->(
-  inputSchema: TInputSchema,
-  transformInput: (input: B.Type<TInputSchema>) => TServerModel,
-  transformOutput: (input: TServerModel) => B.Type<TOutputSchema>,
-  outputSchema: TOutputSchema,
-): _.BorgModel<TInputSchema, TServerModel, TOutputSchema>;
-
-function makeBorg<
-  TInputSchema extends BorgObject<_.Flags>,
-  TServerModel extends object,
-  TOutputSchema extends BorgObject<_.Flags>,
->(
-  schema: TInputSchema,
-  transformInput: (input: B.Type<TInputSchema>) => TServerModel = (
-    input: B.Type<TInputSchema>,
-  ) => input as any,
-  transformOutput: (input: TServerModel) => B.Type<TOutputSchema> = (
-    input: TServerModel,
-  ) => input as any,
-  outputSchema: TOutputSchema = schema as any,
-): _.BorgModel<TInputSchema, TServerModel, TOutputSchema> {
-  /*TODO
-  Modify output parsing so that fields not
-  present in the output schema pass through untouched.
-  When building a client parser, we can use the shape of the input schema,
-  and replace the modified fields with those from the output schema.
-*/
-  return {
-    createFromRequest: input => transformOutput(transformInput(input)),
-    sanitizeResponse: input => transformOutput(input),
-    serializeInput: parsedInput => schema.serialize(parsedInput) as any,
-    deserializeInput: serializedInput => schema.parse(serializedInput) as any,
-    serializeOutput: parsedOutput =>
-      outputSchema.serialize(parsedOutput) as any,
-    deserializeOutput: serializedOutput =>
-      outputSchema.parse(serializedOutput) as any,
-    parseInput: input => schema.parse(input) as any,
-    parseOutput: input => outputSchema.parse(input) as any,
-  };
-}
-
 const B = {
   id: () => new BorgId(),
   string: () => new BorgString(),
@@ -94,7 +39,6 @@ const B = {
   object: <const T extends { [key: string]: _.Borg }>(shape: T) =>
     new BorgObject(shape),
   union: <const T extends _.Borg[]>(...members: T) => new BorgUnion(members),
-  model: makeBorg,
 };
 
 declare module B {
@@ -142,8 +86,6 @@ declare module B {
   export type Borg = _.Borg;
   export type Type<T extends _.Borg> = _.Type<T>;
   export type BsonType<T extends _.Borg> = _.BsonType<T>;
-  export type Serialized<T extends _.Borg> = _.Serialized<T>;
-  export type Deserialized<T extends _.Borg> = _.Deserialized<T>;
   export type AnyBorg =
     | B.Object
     | B.Array
@@ -510,16 +452,16 @@ if (import.meta.vitest) {
               if (borg.meta.kind === "object") {
                 //TODO: This `for` loop will need to change for the `exactOptionalProperties` feature, if it is implemented.
                 for (const key of borg.meta.keys) {
-                  if (value[key as keyof typeof value] !== undefined) {
+                  if (value?.[key as keyof typeof value] !== undefined) {
                     expect(parsed).toHaveProperty(
                       key,
-                      value[key as keyof typeof value],
+                      value?.[key as keyof typeof value],
                     );
                   } else {
-                    expect(parsed["c" as keyof typeof parsed]).toBeUndefined();
+                    expect(parsed?.["c" as keyof typeof parsed]).toBeUndefined();
                   }
                 }
-                const unknownKeys = Object.keys(value).filter(
+                const unknownKeys = Object.keys(value ?? {}).filter(
                   v =>
                     borg.meta.kind === "object" &&
                     !borg.meta.keys.includes(v as keyof typeof value),
@@ -532,11 +474,11 @@ if (import.meta.vitest) {
                     expect(parsed).not.toHaveProperty(key);
                   } else {
                     expect(parsed).toHaveProperty(key);
-                    expect(parsed[key as keyof typeof parsed]).toEqual(
+                    expect(parsed?.[key as keyof typeof parsed]).toEqual(
                       borg.meta.additionalProperties === "passthrough"
-                        ? value[key as keyof typeof value]
+                        ? value?.[key as keyof typeof value]
                         : borg.meta.additionalProperties.parse(
-                            value[key as keyof typeof value],
+                            value?.[key as keyof typeof value],
                           ),
                     );
                   }
@@ -610,18 +552,18 @@ if (import.meta.vitest) {
                 if (borg.meta.kind === "object") {
                   //TODO: This `for` loop will need to change for the `exactOptionalProperties` feature, if it is implemented.
                   for (const key of borg.meta.keys) {
-                    if (value[key as keyof typeof value] !== undefined) {
+                    if (value?.[key as keyof typeof value] !== undefined) {
                       expect(parsed.value).toHaveProperty(
                         key,
-                        value[key as keyof typeof value],
+                        value?.[key as keyof typeof value],
                       );
                     } else {
                       expect(
-                        parsed.value["c" as keyof typeof parsed.value],
+                        parsed.value?.["c" as keyof typeof parsed.value],
                       ).toBeUndefined();
                     }
                   }
-                  const unknownKeys = Object.keys(value).filter(
+                  const unknownKeys = Object.keys(value ?? {}).filter(
                     v =>
                       borg.meta.kind === "object" &&
                       !borg.meta.keys.includes(v as keyof typeof value),
@@ -636,9 +578,9 @@ if (import.meta.vitest) {
                       expect(parsed).toHaveProperty(key);
                       expect(parsed[key as keyof typeof parsed]).toEqual(
                         borg.meta.additionalProperties === "passthrough"
-                          ? value[key as keyof typeof value]
+                          ? value?.[key as keyof typeof value]
                           : borg.meta.additionalProperties.parse(
-                              value[key as keyof typeof value],
+                              value?.[key as keyof typeof value],
                             ),
                       );
                     }
@@ -690,20 +632,6 @@ if (import.meta.vitest) {
           });
 
           it.todo("should print the correct JSON schema", () => {});
-
-          it.todo("should serialize and deserialize", () => {
-            const borg = schema();
-            valid.forEach(value => {
-              const serialized = borg.serialize(value as never);
-              //@ts-expect-error - not yet implemented
-              expect(serialized.data).toEqual(serializedValue);
-              //@ts-expect-error - not yet implemented
-              expect(serialized.meta).toEqual(expectedMeta);
-              //@ts-expect-error - not yet implemented
-              const deserialized = borg.deserialize(serialized);
-              expect(deserialized).toEqual(value);
-            });
-          });
 
           it("should be optional when marked as such", () => {
             const borg = schema().optional();

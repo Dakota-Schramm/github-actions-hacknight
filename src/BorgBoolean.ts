@@ -1,6 +1,6 @@
 import { Borg } from "./Borg";
 import { BorgError } from "./errors";
-import { stripSchemasDeep, getBsonSchema } from "./utils";
+import { getBsonSchema } from "./utils";
 import type * as _ from "./types";
 
 /////////////////////////////////////////////////////////////////////////////////////////////
@@ -92,14 +92,13 @@ export class BorgBoolean<
 
   try(
     input: unknown,
-  ): _.TryResult<_.Type<this>, this["meta"], _.Serialized<this>> {
+  ): _.TryResult<_.Type<this>, this["meta"]> {
     try {
       const value = this.parse(input) as any;
       return {
         value,
         ok: true,
         meta: this.meta,
-        serialize: () => this.serialize.call(this, value),
       } as any;
     } catch (e) {
       if (e instanceof BorgError) return { ok: false, error: e } as any;
@@ -113,22 +112,6 @@ export class BorgBoolean<
           ),
         } as any;
     }
-  }
-
-  serialize(input: _.Type<this>): {
-    data: _.Sanitized<BorgBoolean<TFlags>, TFlags>;
-    meta: _.BooleanMeta<TFlags>;
-  } {
-    if (this.#flags.private) {
-      throw new BorgError(
-        `BOOLEAN_ERROR: Cannot serialize private boolean field`,
-      );
-    }
-    return { data: input as any, meta: stripSchemasDeep(this.meta) };
-  }
-
-  deserialize(input: _.Serialized<this>): _.Sanitized<_.Type<this>, TFlags> {
-    return input.data as any;
   }
 
   toBson(input: _.Parsed<boolean, TFlags>): _.Parsed<boolean, TFlags> {

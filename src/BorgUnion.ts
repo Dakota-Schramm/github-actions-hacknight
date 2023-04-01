@@ -1,6 +1,6 @@
 import { Borg } from "./Borg";
 import { BorgError } from "./errors";
-import { stripSchemasDeep, getBsonSchema } from "./utils";
+import { getBsonSchema } from "./utils";
 import type * as _ from "./types";
 
 /////////////////////////////////////////////////////////////////////////////////////////////
@@ -113,14 +113,13 @@ export class BorgUnion<
 
   try(
     input: unknown,
-  ): _.TryResult<_.Type<this>, this["meta"], _.Serialized<this>> {
+  ): _.TryResult<_.Type<this>, this["meta"]> {
     try {
       const value = this.parse(input) as any;
       return {
         value,
         ok: true,
         meta: this.meta,
-        serialize: () => this.serialize.call(this, value),
       } as any;
     } catch (e) {
       if (e instanceof BorgError) return { ok: false, error: e } as any;
@@ -132,21 +131,6 @@ export class BorgUnion<
           ),
         } as any;
     }
-  }
-
-  //TODO: Serialization and deserialization should be aligned with other borgs
-  serialize(input: _.Type<this>): _.Sanitized<_.Type<this>, TFlags> {
-    if (input === undefined || input === null) return input as any;
-    for (const type of this.#borgMembers)
-      if (type.is(input)) return type.serialize(input) as any;
-    throw new BorgError(`SERIALIZATION_ERROR: Invalid input`);
-  }
-
-  deserialize(input: _.Serialized<this>): _.Sanitized<_.Type<this>, TFlags> {
-    if (input === undefined || input === null) return input as any;
-    for (const type of this.#borgMembers)
-      if (type.is(input)) return type.deserialize(input) as any;
-    throw new BorgError(`DESERIALIZATION_ERROR: Invalid input`);
   }
 
   toBson(input: any): _.Parsed<any, TFlags> {

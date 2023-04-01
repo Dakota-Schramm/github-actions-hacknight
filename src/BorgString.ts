@@ -1,6 +1,6 @@
 import { Borg } from "./Borg";
 import { BorgError } from "./errors";
-import { stripSchemasDeep, getBsonSchema } from "./utils";
+import { getBsonSchema } from "./utils";
 import type * as _ from "./types";
 
 /////////////////////////////////////////////////////////////////////////////////////////////
@@ -128,14 +128,13 @@ export class BorgString<
   }
   try(
     input: unknown,
-  ): _.TryResult<_.Type<this>, this["meta"], _.Serialized<this>> {
+  ): _.TryResult<_.Type<this>, this["meta"]> {
     try {
       const value = this.parse(input) as any;
       return {
         value,
         ok: true,
         meta: this.meta,
-        serialize: () => this.serialize.call(this, value),
       } as any;
     } catch (e) {
       if (e instanceof BorgError) return { ok: false, error: e } as any;
@@ -149,25 +148,6 @@ export class BorgString<
           ),
         } as any;
     }
-  }
-
-  serialize(input: _.Type<this>): {
-    data: _.Sanitized<_.Type<BorgString<TFlags, TLength, TPattern>>, TFlags>;
-    meta: _.StringMeta<TFlags, TLength, TPattern>;
-  } {
-    if (this.#flags.private) {
-      throw new BorgError(
-        `STRING_ERROR: Cannot serialize private string field ${input}`,
-      );
-    }
-    return {
-      data: this.parse(input) as any,
-      meta: stripSchemasDeep(this.meta),
-    };
-  }
-
-  deserialize(input: _.Serialized<this>): _.Sanitized<_.Type<this>, TFlags> {
-    return input as any;
   }
 
   toBson(input: _.Parsed<string, TFlags>) {
