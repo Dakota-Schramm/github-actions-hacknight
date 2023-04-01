@@ -1929,7 +1929,7 @@ const B = {
 };
 
 declare module B {
-  export type Boolean<TFlags extends _.Flags = _.Flags> = BorgBoolean<TFlags>;
+  export type Boolean<TFlags extends _.Flags = _.Flags> = InstanceType<typeof BorgBoolean<TFlags>>;
 
   export type Id<
     TFlags extends _.Flags = _.Flags,
@@ -1968,7 +1968,7 @@ declare module B {
   export type Union<
     TFlags extends _.Flags = _.Flags,
     TMembers extends _.Borg[] = _.Borg[],
-  > = BorgUnion<TFlags, TMembers>;
+  > = InstanceType<typeof BorgUnion<TFlags, TMembers>>;
 
   export type Borg = _.Borg;
   export type Type<T extends _.Borg> = _.Type<T>;
@@ -2307,6 +2307,26 @@ if (import.meta.vitest) {
           "c" in value
             ? value.c instanceof Double
             : true,
+      },
+      {
+        name: "BorgUnion",
+        basecase: 1,
+        schema: () => B.union(B.number(), B.string()),
+        valid: [1, "1"],
+        invalid: [undefined, null, true, false, [], {}],
+        bsonCheck: (value: unknown) =>
+          value instanceof Double || typeof value === "string",
+      },
+      {
+        name: "BorgUnion with nullable and optional",
+        basecase: 1,
+        schema: () => B.union(B.number(), B.string()).nullable().optional(),
+        valid: [1, "1", null, undefined],
+        invalid: [true, false, [], {}],
+        bsonCheck: (value: unknown) =>
+          value === null ||
+          value instanceof Double ||
+          typeof value === "string",
       },
     ] satisfies TestCase[];
 
