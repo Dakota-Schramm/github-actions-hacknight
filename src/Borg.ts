@@ -98,7 +98,6 @@ export type TryResult<TValue, TMeta, TSerialized> =
     };
 
 /* c8 ignore start */
-
 //@ts-expect-error - Vite handles this import.meta check
 if (import.meta.vitest) {
   //@ts-expect-error - Vite handles this top-level await
@@ -110,5 +109,4 @@ if (import.meta.vitest) {
     });
   });
 }
-
 /* c8 ignore stop */
