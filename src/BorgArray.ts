@@ -28,13 +28,13 @@ import type * as _ from "./types";
 export class BorgArray<
   const TFlags extends _.Flags = ["required", "notNull", "public"],
   const TLength extends _.MinMax = [null, null],
-  const TItemSchema extends _.Borg = _.Borg,
+  const TItemSchema extends _.Borg = _.Borg
 > extends Borg {
   #borgItems: TItemSchema;
   #flags = {
     optional: false,
     nullable: false,
-    private: false,
+    private: false
   };
   #max: TLength[1] = null;
   #min: TLength[0] = null;
@@ -45,7 +45,7 @@ export class BorgArray<
   }
 
   static #clone<const TBorg extends BorgArray<any, any, any>>(
-    borg: TBorg,
+    borg: TBorg
   ): TBorg {
     const clone = new BorgArray(borg.#borgItems);
     clone.#flags = { ...borg.#flags };
@@ -60,7 +60,7 @@ export class BorgArray<
       maxItems: this.#max,
       minItems: this.#min,
       borgItems: this.#borgItems.copy(),
-      ...this.#flags,
+      ...this.#flags
     }) as any;
   }
 
@@ -82,7 +82,7 @@ export class BorgArray<
       throw new BorgError(
         `ARRAY_ERROR: Expected array${
           this.#flags.nullable ? " or null" : ""
-        }, got undefined`,
+        }, got undefined`
       );
     }
     if (input === null) {
@@ -90,28 +90,28 @@ export class BorgArray<
       throw new BorgError(
         `ARRAY_ERROR: Expected array${
           this.#flags.optional ? " or undefined" : ""
-        }, got null`,
+        }, got null`
       );
     }
     if (!Array.isArray(input)) {
       throw new BorgError(
         `ARRAY_ERROR: Expected array,${
           this.#flags.optional ? " or undefined," : ""
-        }${this.#flags.nullable ? " or null," : ""} got ${typeof input}`,
+        }${this.#flags.nullable ? " or null," : ""} got ${typeof input}`
       );
     }
     if (this.#min !== null && input.length < this.#min) {
       throw new BorgError(
         `ARRAY_ERROR: Expected array length to be greater than or equal to ${
           this.#min
-        }, got ${input.length}`,
+        }, got ${input.length}`
       );
     }
     if (this.#max !== null && input.length > this.#max) {
       throw new BorgError(
         `ARRAY_ERROR: Expected array length to be less than or equal to ${
           this.#max
-        }, got ${input.length}`,
+        }, got ${input.length}`
       );
     }
     const result = new Array(input.length) as any;
@@ -123,15 +123,15 @@ export class BorgArray<
       } catch (e) {
         if (e instanceof BorgError) {
           throw new BorgError(`ARRAY_ERROR: ${e.message} at index ${i}`, e, [
-            i,
+            i
           ]);
         } else {
           throw new BorgError(
             `ARRAY_ERROR: Unknown error parsing index "${i}": \n\t${JSON.stringify(
-              e,
+              e
             )}`,
             undefined,
-            [i],
+            [i]
           );
         }
       }
@@ -139,15 +139,13 @@ export class BorgArray<
     return result;
   }
 
-  try(
-    input: unknown,
-  ): _.TryResult<_.Type<this>, this["meta"]> {
+  try(input: unknown): _.TryResult<_.Type<this>, this["meta"]> {
     try {
       const value = this.parse(input) as any;
       return {
         value,
         ok: true,
-        meta: this.meta,
+        meta: this.meta
       } as any;
     } catch (e) {
       if (e instanceof BorgError) return { ok: false, error: e } as any;
@@ -155,14 +153,14 @@ export class BorgArray<
         return {
           ok: false,
           error: new BorgError(
-            `ARRAY_ERROR(try): Unknown error parsing: \n\t${JSON.stringify(e)}`,
-          ),
+            `ARRAY_ERROR(try): Unknown error parsing: \n\t${JSON.stringify(e)}`
+          )
         } as any;
     }
   }
 
   toBson(
-    input: _.Parsed<Array<_.Type<TItemSchema>>, TFlags>,
+    input: _.Parsed<Array<_.Type<TItemSchema>>, TFlags>
   ): Array<_.BsonType<TItemSchema>> {
     if (input === null || input === undefined) return input as any;
     const result = new Array(input.length) as any;
@@ -173,7 +171,7 @@ export class BorgArray<
   }
 
   fromBson(
-    input: _.BsonType<BorgArray<TFlags, TLength, TItemSchema>>,
+    input: _.BsonType<BorgArray<TFlags, TLength, TItemSchema>> | null | undefined
   ): _.Parsed<Array<_.Type<TItemSchema>>, TFlags> {
     if (input === null || input === undefined) return input as any;
     const result = new Array(input.length) as any;
@@ -234,7 +232,7 @@ export class BorgArray<
   }
 
   minLength<const Min extends number | null>(
-    length: Min,
+    length: Min
   ): BorgArray<TFlags, [Min, TLength[1]], TItemSchema> {
     const clone = this.copy();
     clone.#min = length;
@@ -242,7 +240,7 @@ export class BorgArray<
   }
 
   maxLength<const Max extends number | null>(
-    length: Max,
+    length: Max
   ): BorgArray<TFlags, [TLength[0], Max], TItemSchema> {
     const clone = this.copy();
     clone.#max = length;
@@ -259,11 +257,11 @@ type A2 = typeof A //--> [string & { length: 1 }, string & { length: 1 }, string
 */
 
   length<const N extends number | null>(
-    length: N,
+    length: N
   ): BorgArray<TFlags, [N, N], TItemSchema>;
   length<const Min extends number | null, const Max extends number | null>(
     minLength: Min,
-    maxLength: Max,
+    maxLength: Max
   ): BorgArray<TFlags, [Min, Max], TItemSchema>;
   length(min: number | null, max?: number | null) {
     const clone = this.copy();
@@ -277,14 +275,13 @@ type A2 = typeof A //--> [string & { length: 1 }, string & { length: 1 }, string
 /* c8 ignore start */
 //@ts-expect-error - Vite handles this import.meta check
 if (import.meta.vitest) {
-    //@ts-expect-error - Vite handles this top-level await
-    const { describe, it, expect } = await import("vitest");
-    describe("Borg", () => {
-      it("should not be instantiated", () => {
-        //@ts-expect-error - Borg is abstract
-        expect(() => new Borg()).toThrowError(TypeError);
-      });
+  //@ts-expect-error - Vite handles this top-level await
+  const { describe, it, expect } = await import("vitest");
+  describe("Borg", () => {
+    it("should not be instantiated", () => {
+      //@ts-expect-error - Borg is abstract
+      expect(() => new Borg()).toThrowError(TypeError);
     });
-  }
-  /* c8 ignore stop */
-  
+  });
+}
+/* c8 ignore stop */

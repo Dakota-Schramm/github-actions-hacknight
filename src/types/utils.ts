@@ -43,7 +43,7 @@ export type MinMax = [number | null, number | null];
 
 export type Parsed<TType, TFlags extends Flags> = [
   TFlags[0],
-  TFlags[1],
+  TFlags[1]
 ] extends [infer TOptional extends Flags[0], infer TNullable extends Flags[1]]
   ?
       | TType
@@ -54,7 +54,7 @@ export type Parsed<TType, TFlags extends Flags> = [
 export type Sanitized<TType, TFlags extends Flags> = TFlags extends [
   infer TOptional extends Flags[0],
   infer TNullable extends Flags[1],
-  infer TPublic extends Flags[2],
+  infer TPublic extends Flags[2]
 ]
   ? TPublic extends "private"
     ? never
@@ -96,7 +96,7 @@ export type SetNotNullish<TFlags extends Flags> = SetFLags<
 
 export type GetFlags<
   TFlags extends Flags,
-  TFormat extends "enum" | "bool" = "bool",
+  TFormat extends "enum" | "bool" = "bool"
 > = TFlags extends [infer TOptional, infer TNullable, infer TPrivate]
   ? {
       optional: TOptional extends "optional"
@@ -126,23 +126,23 @@ export type GetFlags<
 type FlagOps = [Flags[0] | "", Flags[1] | "", Flags[2] | ""];
 type SetFLags<TFlags extends Flags, TOps extends FlagOps> = [
   TOps,
-  TFlags,
+  TFlags
 ] extends [
   [
     infer Op_0 extends Flags[0] | "",
     infer Op_1 extends Flags[1] | "",
-    infer Op_2 extends Flags[2] | "",
+    infer Op_2 extends Flags[2] | ""
   ],
   [
     infer TFlag_0 extends Flags[0],
     infer TFlag_1 extends Flags[1],
-    infer TFlag_2 extends Flags[2],
-  ],
+    infer TFlag_2 extends Flags[2]
+  ]
 ]
   ? [
       Op_0 extends Flags[0] ? Op_0 : TFlag_0,
       Op_1 extends Flags[1] ? Op_1 : TFlag_1,
-      Op_2 extends Flags[2] ? Op_2 : TFlag_2,
+      Op_2 extends Flags[2] ? Op_2 : TFlag_2
     ]
   : never;
 

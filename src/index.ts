@@ -38,32 +38,34 @@ const B = {
   array: <const T extends _.Borg>(itemSchema: T) => new BorgArray(itemSchema),
   object: <const T extends { [key: string]: _.Borg }>(shape: T) =>
     new BorgObject(shape),
-  union: <const T extends _.Borg[]>(...members: T) => new BorgUnion(members),
+  union: <const T extends _.Borg[]>(...members: T) => new BorgUnion(members)
 };
 
 declare module B {
-  export type Boolean<TFlags extends _.Flags = _.Flags> = InstanceType<typeof BorgBoolean<TFlags>>;
+  export type Boolean<TFlags extends _.Flags = _.Flags> = InstanceType<
+    typeof BorgBoolean<TFlags>
+  >;
 
   export type Id<
     TFlags extends _.Flags = _.Flags,
-    TFormat extends "string" | "oid" = "string" | "oid",
+    TFormat extends "string" | "oid" = "string" | "oid"
   > = InstanceType<typeof BorgId<TFlags, TFormat>>;
 
   export type Number<
     TFlags extends _.Flags = _.Flags,
-    TLength extends _.MinMax = _.MinMax,
+    TLength extends _.MinMax = _.MinMax
   > = InstanceType<typeof BorgNumber<TFlags, TLength>>;
 
   export type String<
     TFlags extends _.Flags = _.Flags,
     TLength extends _.MinMax = _.MinMax,
-    TPattern extends string = string,
+    TPattern extends string = string
   > = InstanceType<typeof BorgString<TFlags, TLength, TPattern>>;
 
   export type Array<
     TFlags extends _.Flags = _.Flags,
     TLength extends _.MinMax = _.MinMax,
-    TItems extends _.Borg = _.Borg,
+    TItems extends _.Borg = _.Borg
   > = InstanceType<typeof BorgArray<TFlags, TLength, TItems>>;
 
   export type Object<
@@ -75,12 +77,12 @@ declare module B {
       | _.Borg,
     TShape extends { [key: string]: _.Borg } = {
       [key: string]: _.Borg;
-    },
+    }
   > = InstanceType<typeof BorgObject<TFlags, TOtherProps, TShape>>;
 
   export type Union<
     TFlags extends _.Flags = _.Flags,
-    TMembers extends _.Borg[] = _.Borg[],
+    TMembers extends _.Borg[] = _.Borg[]
   > = InstanceType<typeof BorgUnion<TFlags, TMembers>>;
 
   export type Borg = _.Borg;
@@ -127,7 +129,7 @@ if (import.meta.vitest) {
   // @ts-ignore - vitest handles this top-level await
   const [{ describe, expect, it }, { Double }] = await Promise.all([
     import("vitest"),
-    import("bson"),
+    import("bson")
   ]);
 
   type TestCase = {
@@ -142,67 +144,12 @@ if (import.meta.vitest) {
   describe("BorgSchemas", () => {
     const testCases = [
       {
-        name: "BorgString",
-        basecase: "test",
-        schema: () => B.string(),
-        valid: ["", "abc"],
-        invalid: [1, undefined, null, {}],
-        bsonCheck: (value: unknown) => typeof value === "string",
-      },
-      {
-        name: "BorgString with min/max",
-        basecase: "test",
-        schema: () => B.string().minLength(0).maxLength(10),
-        valid: ["", "abc", "1234567890"],
-        invalid: ["12345678901", -1, 11, undefined, null],
-        bsonCheck: (value: unknown) => typeof value === "string",
-      },
-      {
-        name: "BorgString with exact length",
-        basecase: "test--test",
-        schema: () => B.string().length(10),
-        valid: ["1234567890", "abcdefghij"],
-        invalid: ["", "12", "12345678901", -1, 11, undefined, null],
-        bsonCheck: (value: unknown) => typeof value === "string",
-      },
-      {
-        name: "BorgString with length range",
-        basecase: "test",
-        schema: () => B.string().length(0, 10),
-        valid: ["", "abc", "1234567890"],
-        invalid: ["12345678901", -1, 11, undefined, null],
-        bsonCheck: (value: unknown) => typeof value === "string",
-      },
-      {
-        name: "BorgString with pattern",
-        basecase: "C:\\Users\\abc",
-        schema: () => B.string().pattern("C:\\\\Users\\\\.+"),
-        valid: ["C:\\Users\\abc", "C:\\Users\\123"],
-        invalid: ["C:\\\\Users\\abc\\def", "C:\\Users\\", undefined, null],
-        bsonCheck: (value: unknown) => typeof value === "string",
-      },
-      {
-        name: "BorgString with pattern and range",
-        basecase: "C:\\Users\\abc",
-        schema: () =>
-          B.string().minLength(0).maxLength(14).pattern("C:\\\\Users\\\\.+"),
-        valid: ["C:\\Users\\abc", "C:\\Users\\123"],
-        invalid: [
-          "C:\\\\Users\\abc\\def",
-          "C:\\Users\\",
-          "C:\\Users\\abc\\def",
-          undefined,
-          null,
-        ],
-        bsonCheck: (value: unknown) => typeof value === "string",
-      },
-      {
         name: "BorgNumber",
         basecase: 5,
         schema: () => B.number(),
         valid: [0, 3.14, -42],
         invalid: ["1", undefined, null],
-        bsonCheck: (value: unknown) => value instanceof Double,
+        bsonCheck: (value: unknown) => value instanceof Double
       },
       {
         name: "BorgNumber with min/max",
@@ -210,7 +157,7 @@ if (import.meta.vitest) {
         schema: () => B.number().min(0).max(10),
         valid: [0, 3.14, 10],
         invalid: [-1, 11, "1", undefined, null],
-        bsonCheck: (value: unknown) => value instanceof Double,
+        bsonCheck: (value: unknown) => value instanceof Double
       },
       {
         name: "BorgNumber with range",
@@ -218,7 +165,7 @@ if (import.meta.vitest) {
         schema: () => B.number().range(0, 10),
         valid: [0, 3.14, 10],
         invalid: [-1, 11, "1", undefined, null],
-        bsonCheck: (value: unknown) => value instanceof Double,
+        bsonCheck: (value: unknown) => value instanceof Double
       },
       {
         name: "BorgBoolean",
@@ -226,7 +173,7 @@ if (import.meta.vitest) {
         schema: () => B.boolean(),
         valid: [true, false],
         invalid: ["true", 1, undefined, null],
-        bsonCheck: (value: unknown) => typeof value === "boolean",
+        bsonCheck: (value: unknown) => typeof value === "boolean"
       },
       {
         name: "BorgArray",
@@ -235,7 +182,7 @@ if (import.meta.vitest) {
         valid: [[], [1, 2, 3]],
         invalid: ["1", 1, undefined, null],
         bsonCheck: (value: unknown) =>
-          Array.isArray(value) && value.every(v => v instanceof Double),
+          Array.isArray(value) && value.every(v => v instanceof Double)
       },
       {
         name: "BorgArray with min/max",
@@ -244,7 +191,7 @@ if (import.meta.vitest) {
         valid: [[], [1, 2, 3]],
         invalid: [[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], "1", 1, undefined, null],
         bsonCheck: (value: unknown) =>
-          Array.isArray(value) && value.every(v => v instanceof Double),
+          Array.isArray(value) && value.every(v => v instanceof Double)
       },
       {
         name: "BorgArray with length",
@@ -253,171 +200,7 @@ if (import.meta.vitest) {
         valid: [[], [1, 2, 3]],
         invalid: [[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], "1", 1, undefined, null],
         bsonCheck: (value: unknown) =>
-          Array.isArray(value) && value.every(v => v instanceof Double),
-      },
-      {
-        name: "BorgObject",
-        basecase: { a: 1, b: 2, c: 3 },
-        schema: () =>
-          B.object({
-            a: B.number(),
-            b: B.number(),
-            c: B.number(),
-          }),
-        valid: [
-          { a: 1, b: 2, c: 3 },
-          { a: 1, b: 2, c: 3, d: 4 },
-          { a: 1, b: 2, c: 3, d: "", e: null, f: undefined, g: [], h: 0 },
-        ],
-        invalid: [
-          { a: 1, b: 2 },
-          { a: 1, b: 2, c: "3" },
-          "1",
-          1,
-          undefined,
-          null,
-        ],
-        bsonCheck: (value: unknown) =>
-          typeof value === "object" &&
-          value !== null &&
-          "a" in value &&
-          value.a instanceof Double &&
-          "b" in value &&
-          value.b instanceof Double &&
-          "c" in value &&
-          value.c instanceof Double,
-      },
-      {
-        name: "BorgObject with strict extra keys",
-        basecase: { a: 1, b: 2, c: 3 },
-        schema: () =>
-          B.object({
-            a: B.number(),
-            b: B.number(),
-            c: B.number(),
-          }).additionalProperties("strict"),
-        valid: [{ a: 1, b: 2, c: 3 }],
-        invalid: [
-          { a: 1, b: 2, c: 3, d: 4 },
-          { a: 1, b: 2, c: 3, d: "", e: null, f: undefined, g: [], h: 0 },
-          { a: 1, b: 2 },
-          { a: 1, b: 2, c: "3" },
-          "1",
-          1,
-          undefined,
-          null,
-        ],
-        bsonCheck: (value: unknown) =>
-          typeof value === "object" &&
-          value !== null &&
-          "a" in value &&
-          value.a instanceof Double &&
-          "b" in value &&
-          value.b instanceof Double &&
-          "c" in value &&
-          value.c instanceof Double,
-      },
-      {
-        name: "BorgObject with passthrough extra keys",
-        basecase: { a: 1, b: 2, c: 3 },
-        schema: () =>
-          B.object({
-            a: B.number(),
-            b: B.number(),
-            c: B.number(),
-          }).additionalProperties("passthrough"),
-        valid: [
-          { a: 1, b: 2, c: 3, d: 4 },
-          { a: 1, b: 2, c: 3, d: "", e: null, f: undefined, g: [], h: 0 },
-        ],
-        invalid: [
-          { a: 1, b: 2 },
-          { a: 1, b: 2, c: "3" },
-          "1",
-          1,
-          undefined,
-          null,
-        ],
-        bsonCheck: (value: unknown) =>
-          typeof value === "object" &&
-          value !== null &&
-          "a" in value &&
-          value.a instanceof Double &&
-          "b" in value &&
-          value.b instanceof Double &&
-          "c" in value &&
-          value.c instanceof Double,
-      },
-      {
-        name: "BorgObject with validated extra keys",
-        basecase: { a: 1, b: 2, c: 3 },
-        schema: () =>
-          B.object({
-            a: B.number(),
-            b: B.number(),
-            c: B.number(),
-          }).additionalProperties(B.string().nullable().optional()),
-        valid: [
-          { a: 1, b: 2, c: 3, d: "4" },
-          { a: 1, b: 2, c: 3, d: "", e: null, f: undefined, g: "[]", h: "0" },
-        ],
-        invalid: [
-          { a: 1, b: 2, c: 3, d: 4 },
-          { a: 1, b: 2 },
-          { a: 1, b: 2, c: "3" },
-          "1",
-          1,
-          undefined,
-          null,
-        ],
-        bsonCheck: (value: unknown) =>
-          typeof value === "object" &&
-          value !== null &&
-          "a" in value &&
-          value.a instanceof Double &&
-          "b" in value &&
-          value.b instanceof Double &&
-          "c" in value &&
-          value.c instanceof Double,
-      },
-      {
-        name: "BorgObject with optional and nullable properties",
-        basecase: { a: 1, b: 2, c: 3 },
-        schema: () =>
-          B.object({
-            a: B.number(),
-            b: B.number().nullable(),
-            c: B.number().optional(),
-          }),
-        valid: [
-          { a: 1, b: 2, c: 3 },
-          { a: 1, b: 2 },
-          { a: 1, b: 2, c: undefined },
-          { a: 1, b: null, c: 3 },
-          { a: 1, b: null },
-          { a: 1, b: 2, c: 3, d: 4 },
-          { a: 1, b: 2, c: 3, d: "", e: null, f: undefined, g: [], h: 0 },
-        ],
-        invalid: [
-          { a: 1, b: 2, c: "3" },
-          { a: 1, b: 2, c: null },
-          { a: 1, c: 3 },
-          { a: 1, c: undefined },
-          "1",
-          1,
-          undefined,
-          null,
-        ],
-        bsonCheck: (value: unknown) =>
-          typeof value === "object" &&
-          value !== null &&
-          "a" in value &&
-          value.a instanceof Double &&
-          "b" in value &&
-          (value.b === null || value.b instanceof Double) &&
-          "c" in value
-            ? value.c instanceof Double
-            : true,
+          Array.isArray(value) && value.every(v => v instanceof Double)
       },
       {
         name: "BorgUnion",
@@ -426,7 +209,7 @@ if (import.meta.vitest) {
         valid: [1, "1"],
         invalid: [undefined, null, true, false, [], {}],
         bsonCheck: (value: unknown) =>
-          value instanceof Double || typeof value === "string",
+          value instanceof Double || typeof value === "string"
       },
       {
         name: "BorgUnion with nullable and optional",
@@ -435,10 +218,8 @@ if (import.meta.vitest) {
         valid: [1, "1", null, undefined],
         invalid: [true, false, [], {}],
         bsonCheck: (value: unknown) =>
-          value === null ||
-          value instanceof Double ||
-          typeof value === "string",
-      },
+          value === null || value instanceof Double || typeof value === "string"
+      }
     ] satisfies TestCase[];
 
     testCases.forEach(
@@ -449,56 +230,20 @@ if (import.meta.vitest) {
             const message = JSON.stringify(borg.meta, undefined, 2);
             valid.forEach(value => {
               const parsed = borg.parse(value);
-              if (borg.meta.kind === "object") {
-                //TODO: This `for` loop will need to change for the `exactOptionalProperties` feature, if it is implemented.
-                for (const key of borg.meta.keys) {
-                  if (value?.[key as keyof typeof value] !== undefined) {
-                    expect(parsed).toHaveProperty(
-                      key,
-                      value?.[key as keyof typeof value],
-                    );
-                  } else {
-                    expect(parsed?.["c" as keyof typeof parsed]).toBeUndefined();
-                  }
-                }
-                const unknownKeys = Object.keys(value ?? {}).filter(
-                  v =>
-                    borg.meta.kind === "object" &&
-                    !borg.meta.keys.includes(v as keyof typeof value),
-                );
-                for (const key of unknownKeys) {
-                  if (
-                    borg.meta.additionalProperties === "strict" ||
-                    borg.meta.additionalProperties === "strip"
-                  ) {
-                    expect(parsed).not.toHaveProperty(key);
-                  } else {
-                    expect(parsed).toHaveProperty(key);
-                    expect(parsed?.[key as keyof typeof parsed]).toEqual(
-                      borg.meta.additionalProperties === "passthrough"
-                        ? value?.[key as keyof typeof value]
-                        : borg.meta.additionalProperties.parse(
-                            value?.[key as keyof typeof value],
-                          ),
-                    );
-                  }
-                }
-              } else {
-                expect(
-                  parsed,
-                  `Expected ${JSON.stringify(parsed)} to be ${JSON.stringify(
-                    value,
-                  )} using schema: ${message}`,
-                ).toEqual(value);
-              }
+              expect(
+                parsed,
+                `Expected ${JSON.stringify(parsed)} to be ${JSON.stringify(
+                  value
+                )} using schema: ${message}`
+              ).toEqual(value);
             });
 
             invalid.forEach(value => {
               expect(
                 () => borg.parse(value),
                 `Expected ${JSON.stringify(
-                  value,
-                )} to throw for schema: ${message}`,
+                  value
+                )} to throw for schema: ${message}`
               ).toThrow(BorgError);
             });
           });
@@ -520,8 +265,8 @@ if (import.meta.vitest) {
               expect(
                 ok,
                 `Expected ${JSON.stringify(
-                  value,
-                )} to be pass using schema: ${message}`,
+                  value
+                )} to be pass using schema: ${message}`
               ).toBe(true);
             });
 
@@ -530,8 +275,8 @@ if (import.meta.vitest) {
               expect(
                 ok,
                 `Expected ${JSON.stringify(
-                  value,
-                )} to fail using schema: ${message}`,
+                  value
+                )} to fail using schema: ${message}`
               ).toBe(false);
             });
           });
@@ -545,54 +290,16 @@ if (import.meta.vitest) {
               expect(
                 parsed.ok,
                 `Expected ${JSON.stringify(
-                  value,
-                )} to be pass using schema: ${message}`,
+                  value
+                )} to be pass using schema: ${message}`
               ).toBe(true);
               if (parsed.ok) {
-                if (borg.meta.kind === "object") {
-                  //TODO: This `for` loop will need to change for the `exactOptionalProperties` feature, if it is implemented.
-                  for (const key of borg.meta.keys) {
-                    if (value?.[key as keyof typeof value] !== undefined) {
-                      expect(parsed.value).toHaveProperty(
-                        key,
-                        value?.[key as keyof typeof value],
-                      );
-                    } else {
-                      expect(
-                        parsed.value?.["c" as keyof typeof parsed.value],
-                      ).toBeUndefined();
-                    }
-                  }
-                  const unknownKeys = Object.keys(value ?? {}).filter(
-                    v =>
-                      borg.meta.kind === "object" &&
-                      !borg.meta.keys.includes(v as keyof typeof value),
-                  );
-                  for (const key of unknownKeys) {
-                    if (
-                      borg.meta.additionalProperties === "strict" ||
-                      borg.meta.additionalProperties === "strip"
-                    ) {
-                      expect(parsed).not.toHaveProperty(key);
-                    } else {
-                      expect(parsed).toHaveProperty(key);
-                      expect(parsed[key as keyof typeof parsed]).toEqual(
-                        borg.meta.additionalProperties === "passthrough"
-                          ? value?.[key as keyof typeof value]
-                          : borg.meta.additionalProperties.parse(
-                              value?.[key as keyof typeof value],
-                            ),
-                      );
-                    }
-                  }
-                } else {
-                  expect(
-                    parsed.value,
-                    `Expected ${JSON.stringify(
-                      parsed.value,
-                    )} to be ${JSON.stringify(value)} using schema: ${message}`,
-                  ).toEqual(value);
-                }
+                expect(
+                  parsed.value,
+                  `Expected ${JSON.stringify(
+                    parsed.value
+                  )} to be ${JSON.stringify(value)} using schema: ${message}`
+                ).toEqual(value);
               }
             });
 
@@ -602,15 +309,15 @@ if (import.meta.vitest) {
               expect(
                 parsed.ok,
                 `Expected ${JSON.stringify(
-                  value,
-                )} to fail using schema: ${message}`,
+                  value
+                )} to fail using schema: ${message}`
               ).toBe(false);
               if (!parsed.ok)
                 expect(
                   parsed.error,
                   `Expected ${JSON.stringify(value)} to throw ${
                     parsed.error
-                  } for schema: ${message}`,
+                  } for schema: ${message}`
                 ).toBeInstanceOf(BorgError);
             });
           });
@@ -618,15 +325,14 @@ if (import.meta.vitest) {
           it("should convert to BSON correctly", () => {
             const borg = schema();
             valid.forEach(value => {
-              //@ts-expect-error - testing sucks with TS :()
               const bson = borg.toBson(value);
               expect(bsonCheck(bson), `${bsonCheck.toString()}`).toBe(true);
               const reverted = borg.fromBson(bson as never);
               expect(
                 reverted,
                 `Expected ${JSON.stringify(bson)} to revert to ${JSON.stringify(
-                  bson,
-                )}`,
+                  bson
+                )}`
               ).toEqual(value);
             });
           });
@@ -641,8 +347,8 @@ if (import.meta.vitest) {
               `Expected undefined to pass using schema: ${JSON.stringify(
                 borg.meta,
                 undefined,
-                2,
-              )}`,
+                2
+              )}`
             ).toBeUndefined();
           });
 
@@ -654,8 +360,8 @@ if (import.meta.vitest) {
               `Expected null to pass using schema: ${JSON.stringify(
                 borg.meta,
                 undefined,
-                2,
-              )}`,
+                2
+              )}`
             ).toBeNull();
           });
 
@@ -668,16 +374,16 @@ if (import.meta.vitest) {
               `Expected undefined to pass using schema: ${JSON.stringify(
                 borg.meta,
                 undefined,
-                2,
-              )}`,
+                2
+              )}`
             ).toBeUndefined();
             expect(
               parsed2,
               `Expected null to pass using schema: ${JSON.stringify(
                 borg.meta,
                 undefined,
-                2,
-              )}`,
+                2
+              )}`
             ).toBeNull();
           });
 
@@ -690,16 +396,16 @@ if (import.meta.vitest) {
               `Expected undefined to pass using schema: ${JSON.stringify(
                 borg.meta,
                 undefined,
-                2,
-              )}`,
+                2
+              )}`
             ).toBeUndefined();
             expect(
               parsed2,
               `Expected null to pass using schema: ${JSON.stringify(
                 borg.meta,
                 undefined,
-                2,
-              )}`,
+                2
+              )}`
             ).toBeNull();
           });
 
@@ -710,12 +416,12 @@ if (import.meta.vitest) {
               expect(
                 parsed,
                 `Expected ${JSON.stringify(
-                  value,
+                  value
                 )} to pass using schema: ${JSON.stringify(
                   borg.meta,
                   undefined,
-                  2,
-                )}`,
+                  2
+                )}`
               ).toEqual(value);
             });
 
@@ -723,12 +429,12 @@ if (import.meta.vitest) {
               expect(
                 () => borg.parse(value),
                 `Expected ${JSON.stringify(
-                  value,
+                  value
                 )} to fail using schema: ${JSON.stringify(
                   borg.meta,
                   undefined,
-                  2,
-                )}`,
+                  2
+                )}`
               ).toThrow(BorgError);
             });
           });
@@ -771,7 +477,7 @@ if (import.meta.vitest) {
             expect(borg2.parse(undefined)).toBeUndefined();
           });
         });
-      },
+      }
     );
   });
 }

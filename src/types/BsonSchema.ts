@@ -42,7 +42,7 @@ export type BsonSchema<TMeta extends _.Meta> = _.PrettyPrint<
 type UnionBsonSchema<TMeta extends Extract<_.Meta, { kind: "union" }>> = {
   oneOf: [
     ...TMeta["borgMembers"][number]["bsonSchema"][],
-    ...(TMeta["nullable"] extends true ? [{ bsonType: "null" }] : []),
+    ...(TMeta["nullable"] extends true ? [{ bsonType: "null" }] : [])
   ];
 };
 
@@ -90,10 +90,8 @@ type BooleanBsonSchema<TMeta extends Extract<_.Meta, { kind: "boolean" }>> = {
 if (import.meta.vitest) {
   const [
     { describe, it }
-  //@ts-expect-error - Vite handles this top-level await... I'm using a syntax hack to keep it to 1 ts-ignore directive
-  ] = await Promise.all([
-    import("vitest"),
-  ]);
+    //@ts-expect-error - Vite handles this top-level await... I'm using a syntax hack to keep it to 1 ts-ignore directive
+  ] = await Promise.all([import("vitest")]);
 
   describe.todo("BsonSchema Type Helpers", () => {
     it("should produce the expected types", () => {});

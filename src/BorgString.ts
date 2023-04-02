@@ -28,12 +28,12 @@ import type * as _ from "./types";
 export class BorgString<
   const TFlags extends _.Flags = ["required", "notNull", "public"],
   const TLength extends _.MinMax = [null, null],
-  const TPattern extends string = ".*",
+  const TPattern extends string = ".*"
 > extends Borg {
   #flags = {
     optional: false,
     nullable: false,
-    private: false,
+    private: false
   };
   #min: TLength[0] = null;
   #max: TLength[1] = null;
@@ -44,7 +44,7 @@ export class BorgString<
   }
 
   static #clone<const TBorg extends BorgString<any, any, any>>(
-    borg: TBorg,
+    borg: TBorg
   ): TBorg {
     const clone = new BorgString();
     clone.#flags = { ...borg.#flags };
@@ -63,7 +63,7 @@ export class BorgString<
       pattern: this.#pattern,
       regex: this.#pattern
         ? Object.freeze(new RegExp(this.#pattern))
-        : undefined,
+        : undefined
     }) as any;
   }
 
@@ -85,7 +85,7 @@ export class BorgString<
       throw new BorgError(
         `STRING_ERROR: Expected string${
           this.#flags.nullable ? " or null" : ""
-        }, got undefined`,
+        }, got undefined`
       );
     }
     if (input === null) {
@@ -93,68 +93,66 @@ export class BorgString<
       throw new BorgError(
         `STRING_ERROR: Expected string${
           this.#flags.optional ? " or undefined" : ""
-        }, got null`,
+        }, got null`
       );
     }
     if (typeof input !== "string") {
       throw new BorgError(
         `STRING_ERROR: Expected string,${
           this.#flags.optional ? " or undefined," : ""
-        }${this.#flags.nullable ? " or null," : ""} got ${typeof input}`,
+        }${this.#flags.nullable ? " or null," : ""} got ${typeof input}`
       );
     }
     if (this.#min !== null && input.length < this.#min) {
       throw new BorgError(
         `STRING_ERROR: Expected string length to be greater than or equal to ${
           this.#min
-        }, got ${input.length}`,
+        }, got ${input.length}`
       );
     }
     if (this.#max !== null && input.length > this.#max) {
       throw new BorgError(
         `STRING_ERROR: Expected string length to be less than or equal to ${
           this.#max
-        }, got ${input.length}`,
+        }, got ${input.length}`
       );
     }
     if (this.#pattern !== null && !new RegExp(this.#pattern, "u").test(input)) {
       throw new BorgError(
         `STRING_ERROR: Expected string to match pattern ${
           this.#pattern
-        }, got ${input}`,
+        }, got ${input}`
       );
     }
     return input as any;
   }
-  try(
-    input: unknown,
-  ): _.TryResult<_.Type<this>, this["meta"]> {
+  try(input: unknown): _.TryResult<_.Type<this>, this["meta"]> {
     try {
       const value = this.parse(input) as any;
       return {
         value,
         ok: true,
-        meta: this.meta,
+        meta: this.meta
       } as any;
+      /* c8 ignore start */
     } catch (e) {
       if (e instanceof BorgError) return { ok: false, error: e } as any;
       else
         return {
           ok: false,
           error: new BorgError(
-            `STRING_ERROR(try): Unknown error parsing: \n\t${JSON.stringify(
-              e,
-            )}`,
-          ),
+            `STRING_ERROR(try): Unknown error parsing: \n\t${JSON.stringify(e)}`
+          )
         } as any;
     }
+    /* c8 ignore stop */
   }
 
   toBson(input: _.Parsed<string, TFlags>) {
     return input;
   }
 
-  fromBson(input: _.BsonType<BorgString<TFlags, TLength, TPattern>>) {
+  fromBson(input: _.BsonType<BorgString<TFlags, TLength, TPattern>> | null | undefined) {
     return input;
   }
 
@@ -209,7 +207,7 @@ export class BorgString<
   }
 
   minLength<const Min extends number | null>(
-    length: Min,
+    length: Min
   ): BorgString<TFlags, [Min, TLength[1]], TPattern> {
     const clone = this.copy();
     clone.#min = length;
@@ -217,7 +215,7 @@ export class BorgString<
   }
 
   maxLength<const Max extends number | null>(
-    length: Max,
+    length: Max
   ): BorgString<TFlags, [TLength[0], Max], TPattern> {
     const clone = this.copy();
     clone.#max = length;
@@ -225,11 +223,11 @@ export class BorgString<
   }
 
   length<const N extends number | null>(
-    length: N,
+    length: N
   ): BorgString<TFlags, [N, N], TPattern>;
   length<const Min extends number | null, const Max extends number | null>(
     minLength: Min,
-    maxLength: Max,
+    maxLength: Max
   ): BorgString<TFlags, [Min, Max], TPattern>;
   length(min: number | null, max?: number | null) {
     const clone = this.copy();
@@ -243,7 +241,7 @@ export class BorgString<
    * @param pattern a string that will be used as the source for a new RegExp
    */
   pattern<const S extends string | null>(
-    pattern: S,
+    pattern: S
   ): BorgString<TFlags, TLength, S extends null ? ".*" : S> {
     const clone = this.copy();
     clone.#pattern = pattern as any;
@@ -253,17 +251,254 @@ export class BorgString<
   /* c8 ignore next */
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////
+///                                                                                       ///
+///  TTTTTTTTTTTTTTTTTTTT EEEEEEEEEEEEEEEEEEEE     SSSSSSSSSSSSS    TTTTTTTTTTTTTTTTTTTT  ///
+///  T//////////////////T E//////////////////E   SS/////////////SS  T//////////////////T  ///
+///  T//////////////////T E//////////////////E SS/////////////////S T//////////////////T  ///
+///  T///TTTT////TTTT///T E/////EEEEEEEEE////E S///////SSSSS//////S T///TTTT////TTTT///T  ///
+///  T///T  T////T  T///T E/////E        EEEEE S/////SS    SSSSSSS  T///T  T////T  T///T  ///
+///  TTTTT  T////T  TTTTT E/////E              S//////SS            TTTTT  T////T  TTTTT  ///
+///         T////T        E/////E               SS/////SSS                 T////T         ///
+///         T////T        E/////EEEEEEEEE         SS//////SS               T////T         ///
+///         T////T        E//////////////E          SS//////SS             T////T         ///
+///         T////T        E/////EEEEEEEEE             SS//////SS           T////T         ///
+///         T////T        E/////E                       SSS/////SS         T////T         ///
+///         T////T        E/////E                         SS//////S        T////T         ///
+///         T////T        E/////E        EEEEE  SSSSSSS    SS/////S        T////T         ///
+///       TT//////TT      E/////EEEEEEEEE////E S//////SSSSS///////S      TT//////TT       ///
+///       T////////T      E//////////////////E S/////////////////SS      T////////T       ///
+///       T////////T      E//////////////////E  SS/////////////SS        T////////T       ///
+///       TTTTTTTTTT      EEEEEEEEEEEEEEEEEEEE    SSSSSSSSSSSSS          TTTTTTTTTT       ///
+///                                                                                       ///
+/////////////////////////////////////////////////////////////////////////////////////////////
+
 /* c8 ignore start */
 //@ts-expect-error - Vite handles this import.meta check
 if (import.meta.vitest) {
+  const [{ describe, it, expect }, { default: b }, { BorgError }] =
     //@ts-expect-error - Vite handles this top-level await
-    const { describe, it, expect } = await import("vitest");
-    describe("Borg", () => {
-      it("should not be instantiated", () => {
-        //@ts-expect-error - Borg is abstract
-        expect(() => new Borg()).toThrowError(TypeError);
+    await Promise.all([
+      import("vitest"),
+      import("../src/index"),
+      import("../src/errors")
+    ]);
+
+  type TestCase = [
+    string,
+    () => _.Borg,
+    {
+      pass: [any, any][];
+      fail: [any, any][];
+    }
+  ];
+
+  const testCases = [
+    [
+      "a basic string",
+      () => b.string(),
+      {
+        pass: [
+          ["hello", "hello"],
+          ["", ""]
+        ],
+        fail: [
+          [1, BorgError],
+          [true, BorgError],
+          [null, BorgError],
+          [undefined, BorgError]
+        ]
+      }
+    ],
+    [
+      "a string with pattern",
+      () => b.string().pattern("C:\\\\Users\\\\.+\\.txt$"),
+      {
+        pass: [
+          ["C:\\Users\\test.txt", "C:\\Users\\test.txt"],
+          ["C:\\Users\\123.txt", "C:\\Users\\123.txt"]
+        ],
+        fail: [
+          ["C:\\Users\\test0txt", BorgError],
+          ["C:\\Users\\test.txt0", BorgError],
+          ["C:\\Users\\.txt0", BorgError],
+          ["C:\\Userstest.txt", BorgError],
+          ["C:\\\\Users\\test.txt", BorgError]
+        ]
+      }
+    ],
+    [
+      "a string with a min length",
+      () => b.string().minLength(3),
+      {
+        pass: [
+          ["abc", "abc"],
+          ["abcd", "abcd"]
+        ],
+        fail: [
+          ["ab", BorgError],
+          ["", BorgError]
+        ]
+      }
+    ],
+    [
+      "a string with a max length",
+      () => b.string().maxLength(3),
+      {
+        pass: [
+          ["abc", "abc"],
+          ["ab", "ab"]
+        ],
+        fail: [
+          ["abcd", BorgError],
+          ["abcde", BorgError]
+        ]
+      }
+    ],
+    [
+      "a string with a length range",
+      () => b.string().length(3, 5),
+      {
+        pass: [
+          ["abc", "abc"],
+          ["abcd", "abcd"],
+          ["abcde", "abcde"]
+        ],
+        fail: [
+          ["ab", BorgError],
+          ["", BorgError],
+          ["abcdef", BorgError]
+        ]
+      }
+    ],
+    [
+      "a string with a min and max length",
+      () => b.string().minLength(3).maxLength(5),
+      {
+        pass: [
+          ["abc", "abc"],
+          ["abcd", "abcd"],
+          ["abcde", "abcde"]
+        ],
+        fail: [
+          ["ab", BorgError],
+          ["", BorgError],
+          ["abcdef", BorgError]
+        ]
+      }
+    ],
+    [
+      "a string with a fixed length",
+      () => b.string().length(3),
+      {
+        pass: [["abc", "abc"]],
+        fail: [
+          ["ab", BorgError],
+          ["", BorgError],
+          ["abcd", BorgError]
+        ]
+      }
+    ]
+  ] satisfies TestCase[];
+
+  describe.each([...testCases])(
+    "correctly parses %s",
+    (_name, borg, { pass, fail }) => {
+      it("parses the same whether marked private or public", () => {
+        const borgPrivate = borg().private();
+        const borgPublic = borgPrivate.public();
+
+        for (const [input, expected] of pass) {
+          expect(borgPublic.parse(input)).toEqual(expected);
+          expect(borgPrivate.parse(input)).toEqual(expected);
+        }
+
+        for (const [input, expected] of fail) {
+          expect(() => borgPublic.parse(input)).toThrow(expected);
+          expect(() => borgPrivate.parse(input)).toThrow(expected);
+        }
       });
+
+      it.each([...pass])("parses %j as %j", (value, expected) => {
+        expect(borg().parse(value)).toEqual(expected);
+      });
+
+      it.each([...fail])("throws on %j", (value, expected) => {
+        expect(() => borg().parse(value)).toThrow(expected);
+      });
+    }
+  );
+  describe("try() works as expected", () => {
+    it.each([...testCases])(
+      "parses %s correctly",
+      (_name, borg, { pass, fail }) => {
+        it.each([...pass])("parses %j as %j'", (value, expected) => {
+          const result = borg().try(value);
+          expect(result.ok).toEqual(true);
+          if (result.ok) expect(result.value).toEqual(expected);
+        });
+
+        it.each([...fail])("parses %j without throwing", (value, expected) => {
+          const result = borg().try(value);
+          expect(result.ok).toEqual(false);
+          if (!result.ok) expect(result.error).toBeInstanceOf(expected);
+        });
+      }
+    );
+  });
+  describe("is() works as expected", () => {
+    it.each([...testCases])(
+      "'is()' returns the correct value for %s",
+      (_name, borg, { pass, fail }) => {
+        it.each([...pass.map(p => p[0])])("returns true for %j", value => {
+          expect(borg().is(value)).toEqual(true);
+        });
+
+        it.each([...fail.map(f => f[0])])("returns false for %j", value => {
+          expect(borg().is(value)).toEqual(false);
+        });
+      }
+    );
+  });
+
+  describe("constraints can be chained arbitrarily", () => {
+    const borg = b
+      .string()
+      .minLength(2)
+      .maxLength(4)
+      .pattern("C:\\\\Users\\\\.+\\.txt$")
+      .pattern(null)
+      .length(10)
+      .length(null)
+      .length(3, 5);
+
+    it("parses as expected", () => {
+      expect(borg.parse("12345")).toEqual("12345");
+      expect(borg.parse("123")).toEqual("123");
     });
-  }
-  /* c8 ignore stop */
-  
+
+    it("throws as expected", () => {
+      expect(() => borg.parse("123456")).toThrow(BorgError);
+      expect(() => borg.parse("1234567890")).toThrow(BorgError);
+      expect(() => borg.parse("12")).toThrow(BorgError);
+    });
+  });
+
+  describe("converts to and from BSON correctly", () => {
+    const borg = b.string().minLength(3).maxLength(5).nullable();
+    const value = "test";
+    const asBson = borg.toBson(value);
+    const reverted = borg.fromBson(asBson);
+
+    it("returns the correct BSON value for 'toBSON()'", () => {
+      expect(asBson).toEqual(value);
+      expect(borg.toBson(null)).toBe(null);
+    });
+
+    it("returns the correct value for 'fromBSON()'", () => {
+      expect(reverted).toEqual(value);
+      expect(borg.fromBson(null)).toBe(null);
+    });
+  });
+}
+/* c8 ignore stop */

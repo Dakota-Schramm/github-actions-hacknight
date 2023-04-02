@@ -28,12 +28,12 @@ import type * as _ from "./types";
 
 export class BorgId<
   const TFlags extends _.Flags = ["required", "notNull", "public"],
-  const TFormat extends string | _.ObjectId = string,
+  const TFormat extends string | _.ObjectId = string
 > extends Borg {
   #flags = {
     optional: false,
     nullable: false,
-    private: false,
+    private: false
   };
   #format = true;
 
@@ -62,7 +62,7 @@ export class BorgId<
     return Object.freeze({
       kind: "id",
       format: this.#format ? "string" : "oid",
-      ...this.#flags,
+      ...this.#flags
     }) as any;
   }
 
@@ -84,7 +84,7 @@ export class BorgId<
       throw new BorgError(
         `ID_ERROR: Expected valid ObjectId${
           this.#flags.nullable ? " or null" : ""
-        }, got undefined`,
+        }, got undefined`
       );
     }
     if (input === null) {
@@ -92,7 +92,7 @@ export class BorgId<
       throw new BorgError(
         `ID_ERROR: Expected valid ObjectId${
           this.#flags.optional ? " or undefined" : ""
-        }, got null`,
+        }, got null`
       );
     }
     if (typeof input === "string") {
@@ -122,19 +122,17 @@ export class BorgId<
     throw new BorgError(
       `ID_ERROR: Expected valid ObjectId,${
         this.#flags.optional ? " or undefined," : ""
-      }${this.#flags.nullable ? " or null," : ""} got ${typeof input}`,
+      }${this.#flags.nullable ? " or null," : ""} got ${typeof input}`
     );
   }
 
-  try(
-    input: unknown,
-  ): _.TryResult<_.Type<this>, this["meta"]> {
+  try(input: unknown): _.TryResult<_.Type<this>, this["meta"]> {
     try {
       const value = this.parse(input) as any;
       return {
         value,
         ok: true,
-        meta: this.meta,
+        meta: this.meta
       } as any;
     } catch (e) {
       if (e instanceof BorgError) return { ok: false, error: e } as any;
@@ -142,8 +140,8 @@ export class BorgId<
         return {
           ok: false,
           error: new BorgError(
-            `ID_ERROR(try): Unknown error parsing: \n\t${JSON.stringify(e)}`,
-          ),
+            `ID_ERROR(try): Unknown error parsing: \n\t${JSON.stringify(e)}`
+          )
         } as any;
     }
   }
@@ -155,7 +153,7 @@ export class BorgId<
   }
 
   fromBson(
-    input: _.BsonType<BorgId<TFlags, TFormat>>,
+    input: _.BsonType<BorgId<TFlags, TFormat>> | null | undefined
   ): _.Parsed<TFormat, TFlags> {
     if (input === undefined || input === null) return input as any;
     if (!this.#format) return input as any;

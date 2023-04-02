@@ -21,7 +21,7 @@
 /////////////////////////////////////////////////////////////////////////////////////////////
 
 export class BorgError<
-  const T extends BorgError | undefined = undefined,
+  const T extends BorgError | undefined = undefined
 > extends Error {
   #path: (string | number)[] = [];
 

@@ -27,13 +27,13 @@ import type * as _ from "./types";
 
 export class BorgUnion<
   const TFlags extends _.Flags = ["required", "notNull", "public"],
-  const TMembers extends _.Borg[] = _.Borg[],
+  const TMembers extends _.Borg[] = _.Borg[]
 > extends Borg {
   #borgMembers: TMembers;
   #flags = {
     optional: false,
     nullable: false,
-    private: false,
+    private: false
   };
 
   constructor(members: TMembers) {
@@ -52,7 +52,7 @@ export class BorgUnion<
     return Object.freeze({
       kind: "union",
       borgMembers: this.#borgMembers.map(m => m.copy()),
-      ...this.#flags,
+      ...this.#flags
     }) as any;
   }
 
@@ -74,7 +74,7 @@ export class BorgUnion<
       throw new BorgError(
         `UNION_ERROR: Expected valid type${
           this.#flags.nullable ? " or null" : ""
-        }, got undefined`,
+        }, got undefined`
       );
     }
     if (input === null) {
@@ -82,7 +82,7 @@ export class BorgUnion<
       throw new BorgError(
         `UNION_ERROR: Expected valid type${
           this.#flags.optional ? " or undefined" : ""
-        }, got null`,
+        }, got null`
       );
     }
     const errors = [] as { ok: false; error: BorgError }[];
@@ -105,21 +105,19 @@ export class BorgUnion<
               "message" in error &&
               typeof error.message === "string"
             ? error.message
-            : "UNKNOWN ERROR",
+            : "UNKNOWN ERROR"
         )
-        .join("\n")}`,
+        .join("\n")}`
     );
   }
 
-  try(
-    input: unknown,
-  ): _.TryResult<_.Type<this>, this["meta"]> {
+  try(input: unknown): _.TryResult<_.Type<this>, this["meta"]> {
     try {
       const value = this.parse(input) as any;
       return {
         value,
         ok: true,
-        meta: this.meta,
+        meta: this.meta
       } as any;
     } catch (e) {
       if (e instanceof BorgError) return { ok: false, error: e } as any;
@@ -127,8 +125,8 @@ export class BorgUnion<
         return {
           ok: false,
           error: new BorgError(
-            `UNION_ERROR(try): Unknown error parsing: \n\t${JSON.stringify(e)}`,
-          ),
+            `UNION_ERROR(try): Unknown error parsing: \n\t${JSON.stringify(e)}`
+          )
         } as any;
     }
   }
@@ -140,7 +138,7 @@ export class BorgUnion<
     throw new BorgError(`TO_BSON_ERROR: Invalid input`);
   }
 
-  fromBson(input: any): _.Parsed<any, TFlags> {
+  fromBson(input: any): _.Parsed<any, TFlags> | null | undefined {
     if (input === undefined || input === null) return input as any;
     for (const type of this.#borgMembers)
       if (type.is(input)) return type.fromBson(input) as any;
@@ -201,14 +199,13 @@ export class BorgUnion<
 /* c8 ignore start */
 //@ts-expect-error - Vite handles this import.meta check
 if (import.meta.vitest) {
-    //@ts-expect-error - Vite handles this top-level await
-    const { describe, it, expect } = await import("vitest");
-    describe("Borg", () => {
-      it("should not be instantiated", () => {
-        //@ts-expect-error - Borg is abstract
-        expect(() => new Borg()).toThrowError(TypeError);
-      });
+  //@ts-expect-error - Vite handles this top-level await
+  const { describe, it, expect } = await import("vitest");
+  describe("Borg", () => {
+    it("should not be instantiated", () => {
+      //@ts-expect-error - Borg is abstract
+      expect(() => new Borg()).toThrowError(TypeError);
     });
-  }
-  /* c8 ignore stop */
-  
+  });
+}
+/* c8 ignore stop */

@@ -26,12 +26,12 @@ import type * as _ from "./types";
 /////////////////////////////////////////////////////////////////////////////////////////////
 
 export class BorgBoolean<
-  const TFlags extends _.Flags = ["required", "notNull", "public"],
+  const TFlags extends _.Flags = ["required", "notNull", "public"]
 > extends Borg {
   #flags = {
     optional: false,
     nullable: false,
-    private: false,
+    private: false
   };
 
   constructor() {
@@ -47,7 +47,7 @@ export class BorgBoolean<
   get meta(): _.BooleanMeta<TFlags> {
     return Object.freeze({
       kind: "boolean",
-      ...this.#flags,
+      ...this.#flags
     }) as any;
   }
 
@@ -69,7 +69,7 @@ export class BorgBoolean<
       throw new BorgError(
         `BOOLEAN_ERROR: Expected boolean${
           this.#flags.nullable ? " or null" : ""
-        }, got undefined`,
+        }, got undefined`
       );
     }
     if (input === null) {
@@ -77,28 +77,26 @@ export class BorgBoolean<
       throw new BorgError(
         `BOOLEAN_ERROR: Expected boolean${
           this.#flags.optional ? " or undefined" : ""
-        }, got null`,
+        }, got null`
       );
     }
     if (typeof input !== "boolean") {
       throw new BorgError(
         `BOOLEAN_ERROR: Expected boolean,${
           this.#flags.optional ? " or undefined," : ""
-        }${this.#flags.nullable ? " or null," : ""} got ${typeof input}`,
+        }${this.#flags.nullable ? " or null," : ""} got ${typeof input}`
       );
     }
     return input as any;
   }
 
-  try(
-    input: unknown,
-  ): _.TryResult<_.Type<this>, this["meta"]> {
+  try(input: unknown): _.TryResult<_.Type<this>, this["meta"]> {
     try {
       const value = this.parse(input) as any;
       return {
         value,
         ok: true,
-        meta: this.meta,
+        meta: this.meta
       } as any;
     } catch (e) {
       if (e instanceof BorgError) return { ok: false, error: e } as any;
@@ -107,9 +105,9 @@ export class BorgBoolean<
           ok: false,
           error: new BorgError(
             `BOOLEAN_ERROR(try): Unknown error parsing: \n\t${JSON.stringify(
-              e,
-            )}`,
-          ),
+              e
+            )}`
+          )
         } as any;
     }
   }
@@ -118,7 +116,7 @@ export class BorgBoolean<
     return input as any;
   }
 
-  fromBson(input: _.BsonType<BorgBoolean<TFlags>>): _.Parsed<boolean, TFlags> {
+  fromBson(input: _.BsonType<BorgBoolean<TFlags>>): _.Parsed<boolean, TFlags> | null | undefined {
     return input;
   }
 
@@ -176,14 +174,13 @@ export class BorgBoolean<
 /* c8 ignore start */
 //@ts-expect-error - Vite handles this import.meta check
 if (import.meta.vitest) {
-    //@ts-expect-error - Vite handles this top-level await
-    const { describe, it, expect } = await import("vitest");
-    describe("Borg", () => {
-      it("should not be instantiated", () => {
-        //@ts-expect-error - Borg is abstract
-        expect(() => new Borg()).toThrowError(TypeError);
-      });
+  //@ts-expect-error - Vite handles this top-level await
+  const { describe, it, expect } = await import("vitest");
+  describe("Borg", () => {
+    it("should not be instantiated", () => {
+      //@ts-expect-error - Borg is abstract
+      expect(() => new Borg()).toThrowError(TypeError);
     });
-  }
-  /* c8 ignore stop */
-  
+  });
+}
+/* c8 ignore stop */
