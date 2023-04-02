@@ -55,7 +55,7 @@
   },
   "prettier": {
     "semi": true,
-    "trailingComma": "all",
+    "trailingComma": "none",
     "arrowParens": "avoid",
     "tabWidth": 2
   },
