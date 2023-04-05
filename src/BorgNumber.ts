@@ -95,6 +95,13 @@ export class BorgNumber<
         }${this.#flags.nullable ? " or null," : ""} got ${typeof input}`
       );
     }
+    if (Number.isNaN(input)) {
+      throw new BorgError(
+        `NUMBER_ERROR: Expected number,${
+          this.#flags.optional ? " or undefined," : ""
+        }${this.#flags.nullable ? " or null," : ""} got NaN`
+      );
+    }
     if (this.#min !== null && input < this.#min) {
       throw new BorgError(
         `NUMBER_ERROR: Expected number to be greater than or equal to ${
@@ -140,7 +147,7 @@ export class BorgNumber<
   fromBson(
     input: _.BsonType<BorgNumber<TFlags, TRange>> | null | undefined
   ): _.Parsed<number, TFlags> {
-    return (input && "valueOf" in input ? input.valueOf() : input) as any;
+    return (input instanceof Double ? input.valueOf() : input) as any;
   }
 
   optional(): BorgNumber<_.SetOptional<TFlags>, TRange> {
@@ -199,17 +206,49 @@ export class BorgNumber<
   */
   min<const Min extends number | null>(
     min: Min
-  ): BorgNumber<TFlags, [Min, TRange[1]]> {
+  ): [_.GreaterThan<Min, TRange[1]>, Min extends null ? true : false] extends [
+    true,
+    false
+  ]
+    ? never
+    : BorgNumber<TFlags, [Min, TRange[1]]> {
+    if (
+      (min && min > Number.MAX_SAFE_INTEGER) ||
+      (min && min < Number.MIN_SAFE_INTEGER)
+    )
+      throw new RangeError(
+        `Numbers cannot be less than ${Number.MIN_SAFE_INTEGER} or greater than ${Number.MAX_SAFE_INTEGER}`
+      );
+    if (Number.isNaN(min)) throw new TypeError("Min cannot be NaN");
     const clone = this.copy();
     clone.#min = min;
+    if (clone.#min !== null && clone.#max !== null && clone.#min > clone.#max) {
+      throw new RangeError("Minimum cannot be greater than maximum");
+    }
     return clone as any;
   }
 
   max<const Max extends number | null>(
     max: Max
-  ): BorgNumber<TFlags, [TRange[0], Max]> {
+  ): [
+    _.GreaterThan<TRange[0], Max>,
+    TRange[0] extends null ? true : false
+  ] extends [true, false]
+    ? never
+    : BorgNumber<TFlags, [TRange[0], Max]> {
+    if (
+      (max && max > Number.MAX_SAFE_INTEGER) ||
+      (max && max < Number.MIN_SAFE_INTEGER)
+    )
+      throw new RangeError(
+        `Numbers cannot be less than ${Number.MIN_SAFE_INTEGER} or greater than ${Number.MAX_SAFE_INTEGER}`
+      );
+    if (Number.isNaN(max)) throw new TypeError("Max cannot be NaN");
     const clone = this.copy();
     clone.#max = max;
+    if (clone.#max !== null && clone.#min !== null && clone.#min > clone.#max) {
+      throw new RangeError("Minimum cannot be greater than maximum");
+    }
     return clone as any;
   }
   /**
@@ -218,10 +257,28 @@ export class BorgNumber<
   range<const Min extends number | null, const Max extends number | null>(
     min: Min,
     max: Max
-  ): BorgNumber<TFlags, [Min, Max]> {
+  ): null extends Min | Max
+    ? BorgNumber<TFlags, [Min, Max]>
+    : _.GreaterThan<Min, Max> extends true
+    ? never
+    : BorgNumber<TFlags, [Min, Max]> {
+    if (
+      (min && min > Number.MAX_SAFE_INTEGER) ||
+      (min && min < Number.MIN_SAFE_INTEGER) ||
+      (max && max > Number.MAX_SAFE_INTEGER) ||
+      (max && max < Number.MIN_SAFE_INTEGER)
+    )
+      throw new RangeError(
+        `Numbers cannot be less than ${Number.MIN_SAFE_INTEGER} or greater than ${Number.MAX_SAFE_INTEGER}`
+      );
+    if (Number.isNaN(min)) throw new TypeError("Min cannot be NaN");
+    if (Number.isNaN(max)) throw new TypeError("Max cannot be NaN");
     const clone = this.copy();
     clone.#min = min;
     clone.#max = max;
+    if (clone.#min !== null && clone.#max !== null && clone.#min > clone.#max) {
+      throw new RangeError("Minimum cannot be greater than maximum");
+    }
     return clone as any;
   }
 }
@@ -251,12 +308,13 @@ export class BorgNumber<
 /* c8 ignore start */
 //@ts-expect-error - Vite handles this import.meta check
 if (import.meta.vitest) {
-  const [{ describe, it, expect }, { default: b }, { BorgError }] =
+  const [{ describe, it, expect }, { default: b }, { BorgError }, { Double }] =
     //@ts-expect-error - Vite handles this top-level await
     await Promise.all([
       import("vitest"),
       import("../src/index"),
-      import("../src/errors")
+      import("../src/errors"),
+      import("bson")
     ]);
 
   type TestCase = [
@@ -279,7 +337,6 @@ if (import.meta.vitest) {
           [1.1, 1.1],
           [1.1e10, 1.1e10],
           [1.1e-10, 1.1e-10],
-          [NaN, NaN],
           [Infinity, Infinity],
           [-Infinity, -Infinity],
           [Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER],
@@ -288,6 +345,7 @@ if (import.meta.vitest) {
         fail: [
           [null, BorgError],
           [undefined, BorgError],
+          [NaN, BorgError],
           ["", BorgError],
           ["'string'", BorgError],
           [1n, BorgError],
@@ -364,13 +422,13 @@ if (import.meta.vitest) {
           [-3, -3],
           [-4, -4],
           [-3.14, -3.14],
-          [NaN, NaN],
           [-Infinity, -Infinity],
           [Number.MIN_SAFE_INTEGER, Number.MIN_SAFE_INTEGER]
         ],
         fail: [
           [-2.99, BorgError],
           [-2, BorgError],
+          [NaN, BorgError],
           [Infinity, BorgError],
           [Number.MAX_SAFE_INTEGER, BorgError]
         ]
@@ -445,24 +503,27 @@ if (import.meta.vitest) {
       });
     }
   );
+
   describe("try() works as expected", () => {
     it.each([...testCases])(
       "parses %s correctly",
-      (_name, borg, { pass, fail }) => {
-        it.each([...pass])("parses '%s' as '%s'", (value, expected) => {
-          const result = borg().try(value);
-          expect(result.ok).toEqual(true);
-          if (result.ok) expect(result.value).toEqual(expected);
-        });
+      (_name, schema, { pass, fail }) => {
+        const borg = schema();
 
-        it.each([...fail])(
-          "parses '%s' without throwing",
-          (value, expected) => {
-            const result = borg().try(value);
-            expect(result.ok).toEqual(false);
-            if (!result.ok) expect(result.error).toBeInstanceOf(expected);
-          }
-        );
+        for (const [input, expected] of pass) {
+          const result = borg.try(input);
+          expect(result.ok, `Expected "${input}" to pass`).toEqual(true);
+          if (result.ok) expect(result.value).toEqual(expected);
+        }
+
+        for (const [input, expected] of fail) {
+          const result = borg.try(input);
+          expect(
+            result.ok,
+            `Expected "${String(input)}" to fail without throwing`
+          ).toEqual(false);
+          if (!result.ok) expect(result.error).toBeInstanceOf(expected);
+        }
       }
     );
   });
@@ -470,19 +531,21 @@ if (import.meta.vitest) {
     it.each([...testCases])(
       "'is()' returns the correct value for %s",
       (_name, borg, { pass, fail }) => {
-        it.each([...pass.map(p => p[0])])("returns true for '%s'", value => {
-          expect(borg().is(value)).toEqual(true);
-        });
-
-        it.each([...fail.map(f => f[0])])("returns false for '%s'", value => {
-          expect(borg().is(value)).toEqual(false);
-        });
+        for (const [input] of pass) expect(borg().is(input)).toEqual(true);
+        for (const [input] of fail) expect(borg().is(input)).toEqual(false);
       }
     );
   });
 
   describe("constraints can be chained arbitrarily", () => {
-    const borg = b.number().min(2).max(4).range(10, 15).max(null).min(9);
+    const borg = b
+      .number()
+      .min(2)
+      .max(4)
+      .range(10, 15)
+      .max(null)
+      .min(9)
+      .nullish(); // .nullish() is for 100% coverage
 
     it("parses as expected", () => {
       expect(borg.parse(100)).toEqual(100);
@@ -493,6 +556,7 @@ if (import.meta.vitest) {
 
     it("throws as expected", () => {
       expect(() => borg.parse(8)).toThrow(BorgError);
+      expect(() => borg.parse(NaN)).toThrow(BorgError);
     });
   });
 
@@ -510,6 +574,58 @@ if (import.meta.vitest) {
     it("returns the correct value for 'fromBSON()'", () => {
       expect(reverted).toEqual(value);
       expect(borg.fromBson(null)).toBe(null);
+    });
+  });
+
+  describe("range methods throw RangeError for values which are out-of-order or non-finite", () => {
+    const borg = b.number();
+    borg.max(null);
+    it("throws for non-finite min", () => {
+      expect(() => borg.min(Infinity)).toThrow(RangeError);
+    });
+
+    it("throws for non-finite max", () => {
+      expect(() => borg.max(Infinity)).toThrow(RangeError);
+    });
+
+    it("throws for non-finite range", () => {
+      expect(() => borg.range(10, Infinity)).toThrow(RangeError);
+    });
+
+    it("throws for min > max", () => {
+      expect(() => borg.min(2).max(1)).toThrow(RangeError);
+    });
+
+    it("throws for min > max using min after range", () => {
+      expect(() => borg.range(1, 3).min(4)).toThrow(RangeError);
+    });
+
+    it("throws for min > max using max after range", () => {
+      expect(() => borg.range(1, 3).max(0)).toThrow(RangeError);
+    });
+
+    it("throws for min > max using range", () => {
+      expect(() => borg.range(10, 5)).toThrow(RangeError);
+    });
+  });
+
+  describe("range methods throw TypeError for NaN", () => {
+    const borg = b.number();
+
+    it("throws for NaN min", () => {
+      expect(() => borg.min(NaN)).toThrow(TypeError);
+    });
+
+    it("throws for NaN max", () => {
+      expect(() => borg.max(NaN)).toThrow(TypeError);
+    });
+
+    it("throws for NaN max in range", () => {
+      expect(() => borg.range(20, NaN)).toThrow(TypeError);
+    });
+
+    it("throws for NaN min in range", () => {
+      expect(() => borg.range(NaN, 20)).toThrow(TypeError);
     });
   });
 }

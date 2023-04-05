@@ -102,22 +102,22 @@ export class BorgId<
           : ObjectId.createFromHexString(input);
     }
     if (typeof input === "number") {
-      const hex = input.toString(16);
-      if (ObjectId.isValid(input))
-        return this.#format ? (hex as any) : ObjectId.createFromHexString(hex);
+      throw new BorgError(
+        `ID_ERROR: Numeric IDs are not supported, got ${input}`
+      );
     }
     if (input instanceof Uint8Array) {
       const hex = Buffer.from(input).toString("hex");
       if (ObjectId.isValid(input))
         return this.#format ? (hex as any) : ObjectId.createFromHexString(hex);
     }
+    if (input instanceof ObjectId) {
+      return this.#format ? input.toHexString() : (input as any);
+    }
     if (BorgId.isObjectIdLike(input)) {
       const hex = input.toHexString();
       if (ObjectId.isValid(input))
         return this.#format ? (hex as any) : ObjectId.createFromHexString(hex);
-    }
-    if (input instanceof ObjectId) {
-      return this.#format ? input.toHexString() : (input as any);
     }
     throw new BorgError(
       `ID_ERROR: Expected valid ObjectId,${
@@ -134,21 +134,24 @@ export class BorgId<
         ok: true,
         meta: this.meta
       } as any;
+      /* c8 ignore start */
     } catch (e) {
       if (e instanceof BorgError) return { ok: false, error: e } as any;
-      else
+      else {
         return {
           ok: false,
           error: new BorgError(
             `ID_ERROR(try): Unknown error parsing: \n\t${JSON.stringify(e)}`
           )
         } as any;
+      }
+      /* c8 ignore stop */
     }
   }
 
   toBson(input: _.Parsed<TFormat, TFlags>): _.Parsed<_.ObjectId, TFlags> {
-    if (input === undefined || input === null) return input as any;
-    if (input instanceof ObjectId) return input as any;
+    if (input instanceof ObjectId || input === undefined || input === null)
+      return input as any;
     return ObjectId.createFromHexString(input) as any;
   }
 
@@ -157,7 +160,13 @@ export class BorgId<
   ): _.Parsed<TFormat, TFlags> {
     if (input === undefined || input === null) return input as any;
     if (!this.#format) return input as any;
-    return input.toHexString() as any;
+    try {
+      return input.toHexString() as any;
+    } catch (e) {
+      throw new BorgError(
+        `ID_ERROR(fromBson): Expected valid ObjectId, got ${typeof input}`
+      );
+    }
   }
 
   optional(): BorgId<_.SetOptional<TFlags>, TFormat> {
@@ -223,16 +232,247 @@ export class BorgId<
   }
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////
+///                                                                                       ///
+///  TTTTTTTTTTTTTTTTTTTT EEEEEEEEEEEEEEEEEEEE     SSSSSSSSSSSSS    TTTTTTTTTTTTTTTTTTTT  ///
+///  T//////////////////T E//////////////////E   SS/////////////SS  T//////////////////T  ///
+///  T//////////////////T E//////////////////E SS/////////////////S T//////////////////T  ///
+///  T///TTTT////TTTT///T E/////EEEEEEEEE////E S///////SSSSS//////S T///TTTT////TTTT///T  ///
+///  T///T  T////T  T///T E/////E        EEEEE S/////SS    SSSSSSS  T///T  T////T  T///T  ///
+///  TTTTT  T////T  TTTTT E/////E              S//////SS            TTTTT  T////T  TTTTT  ///
+///         T////T        E/////E               SS/////SSS                 T////T         ///
+///         T////T        E/////EEEEEEEEE         SS//////SS               T////T         ///
+///         T////T        E//////////////E          SS//////SS             T////T         ///
+///         T////T        E/////EEEEEEEEE             SS//////SS           T////T         ///
+///         T////T        E/////E                       SSS/////SS         T////T         ///
+///         T////T        E/////E                         SS//////S        T////T         ///
+///         T////T        E/////E        EEEEE  SSSSSSS    SS/////S        T////T         ///
+///       TT//////TT      E/////EEEEEEEEE////E S//////SSSSS///////S      TT//////TT       ///
+///       T////////T      E//////////////////E S/////////////////SS      T////////T       ///
+///       T////////T      E//////////////////E  SS/////////////SS        T////////T       ///
+///       TTTTTTTTTT      EEEEEEEEEEEEEEEEEEEE    SSSSSSSSSSSSS          TTTTTTTTTT       ///
+///                                                                                       ///
+/////////////////////////////////////////////////////////////////////////////////////////////
+
 /* c8 ignore start */
 //@ts-expect-error - Vite handles this import.meta check
 if (import.meta.vitest) {
-  //@ts-expect-error - Vite handles this top-level await
-  const { describe, it, expect } = await import("vitest");
-  describe("Borg", () => {
-    it("should not be instantiated", () => {
-      //@ts-expect-error - Borg is abstract
-      expect(() => new Borg()).toThrowError(TypeError);
+  const [
+    { describe, it, expect },
+    { default: b },
+    { BorgError },
+    { ObjectId }
+  ] =
+    //@ts-expect-error - Vite handles this top-level await
+    await Promise.all([
+      import("vitest"),
+      import("../src/index"),
+      import("../src/errors"),
+      import("bson")
+    ]);
+
+  type TestCase = [
+    string,
+    () => _.Borg,
+    {
+      pass: [any, any][];
+      fail: [any, any][];
+    }
+  ];
+
+  const testCases = [
+    [
+      "an ID with default configuration",
+      () => b.id(),
+      {
+        pass: [
+          [
+            ObjectId.createFromHexString("5f7a5c5c9c9c9c9c9c9c9c9c"),
+            "5f7a5c5c9c9c9c9c9c9c9c9c"
+          ],
+          ["5f7a5c5c9c9c9c9c9c9c9c9c", "5f7a5c5c9c9c9c9c9c9c9c9c"],
+          [
+            {
+              toHexString: () => "5f7a5c5c9c9c9c9c9c9c9c9c",
+              id: "5f7a5c5c9c9c9c9c9c9c9c9c"
+            },
+            "5f7a5c5c9c9c9c9c9c9c9c9c"
+          ],
+          [
+            {
+              toHexString: () => "5f7a5c5c9c9c9c9c9c9c9c9c",
+              id: new Uint8Array(Buffer.from("5f7a5c5c9c9c9c9c9c9c9c9c"))
+            },
+            "5f7a5c5c9c9c9c9c9c9c9c9c"
+          ],
+          [
+            ObjectId.createFromHexString("5f7a5c5c9c9c9c9c9c9c9c9c").id,
+            "5f7a5c5c9c9c9c9c9c9c9c9c"
+          ]
+        ],
+        fail: [
+          [null, BorgError],
+          [undefined, BorgError],
+          [true, BorgError],
+          [false, BorgError],
+          [0, BorgError],
+          [2394564938763, BorgError],
+          ["5f7a5c5c9c9c9c9c9c9c9c9cc", BorgError],
+          ["5f7a5c5c9c9c9c9c9c9c9c9", BorgError],
+          ["gf7a5c5c9c9c9c9c9c9c9c9c", BorgError],
+          ["5f7a5c5c9c9c9c9c9c9c9c9.", BorgError]
+        ]
+      }
+    ],
+    [
+      "an ID with ObjectID format",
+      () => b.id().asObjectId(),
+      {
+        pass: [
+          [
+            ObjectId.createFromHexString("5f7a5c5c9c9c9c9c9c9c9c9c"),
+            ObjectId.createFromHexString("5f7a5c5c9c9c9c9c9c9c9c9c")
+          ],
+          [
+            "5f7a5c5c9c9c9c9c9c9c9c9c",
+            ObjectId.createFromHexString("5f7a5c5c9c9c9c9c9c9c9c9c")
+          ],
+          [
+            {
+              toHexString: () => "5f7a5c5c9c9c9c9c9c9c9c9c",
+              id: "5f7a5c5c9c9c9c9c9c9c9c9c"
+            },
+            ObjectId.createFromHexString("5f7a5c5c9c9c9c9c9c9c9c9c")
+          ],
+          [
+            {
+              toHexString: () => "5f7a5c5c9c9c9c9c9c9c9c9c",
+              id: new Uint8Array(Buffer.from("5f7a5c5c9c9c9c9c9c9c9c9c"))
+            },
+            ObjectId.createFromHexString("5f7a5c5c9c9c9c9c9c9c9c9c")
+          ],
+          [
+            ObjectId.createFromHexString("5f7a5c5c9c9c9c9c9c9c9c9c").id,
+            ObjectId.createFromHexString("5f7a5c5c9c9c9c9c9c9c9c9c")
+          ]
+        ],
+        fail: [
+          [null, BorgError],
+          [undefined, BorgError],
+          [true, BorgError],
+          [false, BorgError],
+          [0, BorgError],
+          ["5f7a5c5c9c9c9c9c9c9c9c9cc", BorgError],
+          ["5f7a5c5c9c9c9c9c9c9c9c9", BorgError],
+          ["gf7a5c5c9c9c9c9c9c9c9c9c", BorgError],
+          ["5f7a5c5c9c9c9c9c9c9c9c9.", BorgError]
+        ]
+      }
+    ]
+  ] satisfies TestCase[];
+
+  describe.each([...testCases])(
+    "correctly parses %s",
+    (_name, borg, { pass, fail }) => {
+      it("parses the same whether marked private or public", () => {
+        const borgPrivate = borg().private();
+        const borgPublic = borgPrivate.public();
+
+        for (const [input, expected] of pass) {
+          expect(borgPublic.parse(input)).toEqual(expected);
+          expect(borgPrivate.parse(input)).toEqual(expected);
+        }
+
+        for (const [input, expected] of fail) {
+          expect(() => borgPublic.parse(input)).toThrow(expected);
+          expect(() => borgPrivate.parse(input)).toThrow(expected);
+        }
+      });
+
+      it.each([...pass])("parses '%s' as '%s'", (value, expected) => {
+        expect(borg().parse(value)).toEqual(expected);
+      });
+
+      it.each([...fail])("throws on '%s'", (value, expected) => {
+        expect(() => borg().parse(value)).toThrow(expected);
+      });
+    }
+  );
+
+  describe("try() works as expected", () => {
+    it.each([...testCases])(
+      "parses %s correctly",
+      (_name, schema, { pass, fail }) => {
+        const borg = schema();
+
+        for (const [input, expected] of pass) {
+          const result = borg.try(input);
+          expect(result.ok, `Expected "${input}" to pass`).toEqual(true);
+          if (result.ok) expect(result.value).toEqual(expected);
+        }
+
+        for (const [input, expected] of fail) {
+          const result = borg.try(input);
+          expect(
+            result.ok,
+            `Expected "${String(input)}" to fail without throwing`
+          ).toEqual(false);
+          if (!result.ok) expect(result.error).toBeInstanceOf(expected);
+        }
+      }
+    );
+  });
+  describe("is() works as expected", () => {
+    it.each([...testCases])(
+      "'is()' returns the correct value for %s",
+      (_name, borg, { pass, fail }) => {
+        for (const [input] of pass) expect(borg().is(input)).toEqual(true);
+        for (const [input] of fail) expect(borg().is(input)).toEqual(false);
+      }
+    );
+  });
+
+  describe("constraints can be chained arbitrarily", () => {
+    const borg = b.id().asObjectId().asString().asObjectId().asString();
+
+    it("parses as expected", () => {
+      expect(borg.parse("5f7a5c5c9c9c9c9c9c9c9c9c")).toEqual(
+        "5f7a5c5c9c9c9c9c9c9c9c9c"
+      );
+      expect(
+        borg.parse(ObjectId.createFromHexString("5f7a5c5c9c9c9c9c9c9c9c9c"))
+      ).toEqual("5f7a5c5c9c9c9c9c9c9c9c9c");
+    });
+
+    it("throws as expected", () => {
+      expect(() => borg.parse("5f7a5c5c9c9c9c9c9c9c9c9")).toThrow(BorgError);
+      expect(() => borg.parse("gf7a5c5c9c9c9c9c9c9c9c9c")).toThrow(BorgError);
+      expect(() => borg.parse("5f7a5c5c9c9c9c9c9c9c9c9.")).toThrow(BorgError);
+    });
+  });
+
+  describe("converts to and from BSON correctly", () => {
+    const borg = b.id().nullish();
+    const value = "5f7a5c5c9c9c9c9c9c9c9c9c";
+    const borg2 = b.id().asObjectId().nullish();
+    const value2 = ObjectId.createFromHexString("5f7a5c5c9c9c9c9c9c9c9c9c");
+    const asBson = borg.toBson(value);
+    const reverted = borg.fromBson(asBson);
+    const asBson2 = borg2.toBson(value2);
+    const reverted2 = borg2.fromBson(asBson2);
+
+    it("returns the correct BSON value for 'toBSON()'", () => {
+      expect(asBson).toEqual(ObjectId.createFromHexString(value));
+      expect(borg.toBson(null)).toBe(null);
+      expect(asBson2).toEqual(value2);
+      expect(borg2.toBson(null)).toBe(null);
+    });
+
+    it("returns the correct value for 'fromBSON()'", () => {
+      expect(reverted).toEqual(value);
+      expect(borg.fromBson(null)).toBe(null);
+      expect(reverted2).toEqual(value2);
+      expect(borg2.fromBson(null)).toBe(null);
     });
   });
 }
-/* c8 ignore stop */

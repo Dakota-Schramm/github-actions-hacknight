@@ -385,7 +385,7 @@ if (import.meta.vitest) {
     }
   ];
 
-  const testcases = [
+  const testCases = [
     [
       "a simple object",
       () =>
@@ -522,37 +522,37 @@ if (import.meta.vitest) {
             c: b.number(),
             d: b.boolean()
           }),
-          c: b.union(b.boolean(), b.number()),
-          d: b.string().optional()
+          e: b.union(b.boolean(), b.number()),
+          f: b.string().optional()
         }),
       {
         strict: {
           pass: [
             [
-              { a: ["a"], b: { c: 1, d: true }, c: true },
-              { a: ["a"], b: { c: 1, d: true }, c: true }
+              { a: ["a"], b: { c: 1, d: true }, e: true },
+              { a: ["a"], b: { c: 1, d: true }, e: true }
             ],
             [
-              { a: ["a"], b: { c: 1, d: true }, c: 1 },
-              { a: ["a"], b: { c: 1, d: true }, c: 1 }
+              { a: ["a"], b: { c: 1, d: true }, e: 1 },
+              { a: ["a"], b: { c: 1, d: true }, e: 1 }
             ],
             [
-              { a: ["a"], b: { c: 1, d: true }, c: true, d: "a" },
-              { a: ["a"], b: { c: 1, d: true }, c: true, d: "a" }
+              { a: ["a"], b: { c: 1, d: true }, e: true, f: "a" },
+              { a: ["a"], b: { c: 1, d: true }, e: true, f: "a" }
             ],
             // Note that a property key set to undefined is treated the same as the key not being present - it is stripped.
             // TODO: This behavior may change if 'exactOptionalProperties' is implemented.
             [
-              { a: ["a"], b: { c: 1, d: true }, c: 1, d: undefined },
-              { a: ["a"], b: { c: 1, d: true }, c: 1 }
+              { a: ["a"], b: { c: 1, d: true }, e: 1, f: undefined },
+              { a: ["a"], b: { c: 1, d: true }, e: 1 }
             ]
           ],
           fail: [
             [{ a: ["a"], b: { c: 1, d: true } }, BorgError],
-            [{ a: ["a"], b: { c: 1, d: true }, c: "a" }, BorgError],
-            [{ a: ["a"], b: { c: 1, d: true }, c: true, d: null }, BorgError],
+            [{ a: ["a"], b: { c: 1, d: true }, e: "a" }, BorgError],
+            [{ a: ["a"], b: { c: 1, d: true }, e: true, f: null }, BorgError],
             [
-              { a: ["a"], b: { c: 1, d: true }, c: true, d: undefined, e: "" },
+              { a: ["a"], b: { c: 1, d: true }, e: true, f: undefined, g: "" },
               BorgError
             ]
           ]
@@ -560,120 +560,120 @@ if (import.meta.vitest) {
         passthrough: {
           pass: [
             [
-              { a: ["a"], b: { c: 1, d: true }, c: true },
-              { a: ["a"], b: { c: 1, d: true }, c: true }
+              { a: ["a"], b: { c: 1, d: true }, e: true },
+              { a: ["a"], b: { c: 1, d: true }, e: true }
             ],
             [
-              { a: ["a"], b: { c: 1, d: true }, c: 1 },
-              { a: ["a"], b: { c: 1, d: true }, c: 1 }
+              { a: ["a"], b: { c: 1, d: true }, e: 1 },
+              { a: ["a"], b: { c: 1, d: true }, e: 1 }
             ],
             [
-              { a: ["a"], b: { c: 1, d: true }, c: true, d: "a" },
-              { a: ["a"], b: { c: 1, d: true }, c: true, d: "a" }
+              { a: ["a"], b: { c: 1, d: true }, e: true, f: "a" },
+              { a: ["a"], b: { c: 1, d: true }, e: true, f: "a" }
             ],
             [
-              { a: ["a"], b: { c: 1, d: true }, c: true, d: undefined, e: "" },
-              { a: ["a"], b: { c: 1, d: true }, c: true, d: undefined, e: "" }
+              { a: ["a"], b: { c: 1, d: true }, e: true, f: undefined, g: "" },
+              { a: ["a"], b: { c: 1, d: true }, e: true, f: undefined, g: "" }
             ]
           ],
           fail: [
             [{ a: ["a"], b: { c: 1, d: true } }, BorgError],
-            [{ a: ["a"], b: { c: 1, d: true }, c: "a" }, BorgError],
-            [{ a: ["a"], b: { c: 1, d: true }, c: true, d: null }, BorgError]
+            [{ a: ["a"], b: { c: 1, d: true }, e: "a" }, BorgError],
+            [{ a: ["a"], b: { c: 1, d: true }, e: true, f: null }, BorgError]
           ]
         },
         strip: {
           pass: [
             [
-              { a: ["a"], b: { c: 1, d: true }, c: true },
-              { a: ["a"], b: { c: 1, d: true }, c: true }
+              { a: ["a"], b: { c: 1, d: true }, e: true },
+              { a: ["a"], b: { c: 1, d: true }, e: true }
             ],
             [
-              { a: ["a"], b: { c: 1, d: true }, c: 1 },
-              { a: ["a"], b: { c: 1, d: true }, c: 1 }
+              { a: ["a"], b: { c: 1, d: true }, e: 1 },
+              { a: ["a"], b: { c: 1, d: true }, e: 1 }
             ],
             [
-              { a: ["a"], b: { c: 1, d: true }, c: true, d: "", e: "e" },
-              { a: ["a"], b: { c: 1, d: true }, c: true, d: "" }
+              { a: ["a"], b: { c: 1, d: true }, e: true, f: "", g: "e" },
+              { a: ["a"], b: { c: 1, d: true }, e: true, f: "" }
             ],
             [
-              { a: ["a"], b: { c: 1, d: true }, c: true, d: undefined, e: "" },
-              { a: ["a"], b: { c: 1, d: true }, c: true }
+              { a: ["a"], b: { c: 1, d: true }, e: true, f: undefined, g: "" },
+              { a: ["a"], b: { c: 1, d: true }, e: true }
             ]
           ],
           fail: [
             [{ a: ["a"], b: { c: 1, d: true } }, BorgError],
-            [{ a: ["a"], b: { c: 1, d: true }, c: "a" }, BorgError],
-            [{ a: ["a"], b: { c: 1, d: true }, c: true, d: null }, BorgError]
+            [{ a: ["a"], b: { c: 1, d: true }, e: "a" }, BorgError],
+            [{ a: ["a"], b: { c: 1, d: true }, e: true, f: null }, BorgError]
           ]
         },
         withValidator: {
           borg: b
             .object({
-              a: b.array(b.string())
+              h: b.array(b.string())
             })
             .additionalProperties(b.string()),
           pass: [
             [
-              { a: ["a"], b: { c: 1, d: true }, c: true },
-              { a: ["a"], b: { c: 1, d: true }, c: true }
+              { a: ["a"], b: { c: 1, d: true }, e: true },
+              { a: ["a"], b: { c: 1, d: true }, e: true }
             ],
             [
-              { a: ["a"], b: { c: 1, d: true }, c: 1 },
-              { a: ["a"], b: { c: 1, d: true }, c: 1 }
+              { a: ["a"], b: { c: 1, d: true }, e: 1 },
+              { a: ["a"], b: { c: 1, d: true }, e: 1 }
             ],
             [
-              { a: ["a"], b: { c: 1, d: true }, c: true, d: "a" },
-              { a: ["a"], b: { c: 1, d: true }, c: true, d: "a" }
+              { a: ["a"], b: { c: 1, d: true }, e: true, f: "a" },
+              { a: ["a"], b: { c: 1, d: true }, e: true, f: "a" }
             ],
             [
               {
                 a: ["a"],
                 b: { c: 1, d: true },
-                c: true,
-                d: "a",
-                e: { a: ["a"] }
+                e: true,
+                f: "f",
+                g: { h: ["h"] }
               },
               {
                 a: ["a"],
                 b: { c: 1, d: true },
-                c: true,
-                d: "a",
-                e: { a: ["a"] }
+                e: true,
+                f: "f",
+                g: { h: ["h"] }
               }
             ],
             [
               {
                 a: ["a"],
                 b: { c: 1, d: true },
-                c: true,
-                d: "a",
-                e: { a: ["a"], b: "b" }
+                e: true,
+                f: "f",
+                g: { h: ["h"], i: "i" }
               },
               {
                 a: ["a"],
                 b: { c: 1, d: true },
-                c: true,
-                d: "a",
-                e: { a: ["a"], b: "b" }
+                e: true,
+                f: "f",
+                g: { h: ["h"], i: "i" }
               }
             ]
           ],
           fail: [
             [{ a: ["a"], b: { c: 1, d: true } }, BorgError],
-            [{ a: ["a"], b: { c: 1, d: true }, c: "a" }, BorgError],
-            [{ a: ["a"], b: { c: 1, d: true }, c: true, d: null }, BorgError],
+            [{ a: ["a"], b: { c: 1, d: true }, e: "a" }, BorgError],
+            [{ a: ["a"], b: { c: 1, d: true }, e: true, f: null }, BorgError],
             [
-              { a: ["a"], b: { c: 1, d: true }, c: true, d: "a", e: "a" },
+              { a: ["a"], b: { c: 1, d: true }, e: true, f: "a", g: "a" },
               BorgError
             ],
             [
               {
                 a: ["a"],
                 b: { c: 1, d: true },
-                c: true,
-                d: "a",
-                e: { a: ["a"], b: 1 }
+                e: true,
+                f: "f",
+                g: { h: ["h"], i: 1 }
               },
               BorgError
             ]
@@ -683,7 +683,7 @@ if (import.meta.vitest) {
     ]
   ] satisfies TestCase[];
 
-  describe.each(testcases)(
+  describe.each(testCases)(
     "Works with %s",
     (_name, schema, { passthrough, strict, strip, withValidator }) => {
       it("parses the same whether marked private or public", () => {
@@ -879,6 +879,100 @@ if (import.meta.vitest) {
       expect(reverted).toEqual(value);
       expect(borg.fromBson(null)).toBe(null);
     });
+
+    describe.each([...testCases])(
+      "correctly parses %s",
+      (_name, borg, { strict, strip, passthrough, withValidator }) => {
+        it("parses the same whether marked private or public", () => {
+          const borgPrivate = borg().private();
+          const borgPublic = borgPrivate.public();
+
+          for (const [input] of strip.pass) {
+            expect(borgPublic.parse(input), "strip failed").toEqual(
+              borgPrivate.parse(input)
+            );
+          }
+          for (const [input] of strip.fail) {
+            expect(() => borgPublic.parse(input), "strip failed").toThrow(
+              (() => {
+                try {
+                  return borgPrivate.parse(input);
+                } catch (e) {
+                  return e;
+                }
+              })() as any
+            );
+          }
+
+          const borgPrivateStrict = borg()
+            .private()
+            .additionalProperties("strict");
+          const borgPublicStrict = borgPrivateStrict.public();
+
+          for (const [input] of strict.pass) {
+            expect(borgPublicStrict.parse(input), "strict failed").toEqual(
+              borgPrivateStrict.parse(input)
+            );
+          }
+          for (const [input] of strict.fail) {
+            expect(() => borgPublicStrict.parse(input)).toThrow(
+              (() => {
+                try {
+                  return borgPrivateStrict.parse(input);
+                } catch (e) {
+                  return e;
+                }
+              })() as any
+            );
+          }
+
+          const borgPublicPass = borg()
+            .public()
+            .additionalProperties("passthrough");
+          const borgPrivatePass = borgPublicPass.private();
+
+          for (const [input] of passthrough.pass) {
+            expect(borgPublicPass.parse(input)).toEqual(
+              borgPrivatePass.parse(input)
+            );
+          }
+
+          for (const [input] of passthrough.fail) {
+            expect(() => borgPublicPass.parse(input)).toThrow(
+              (() => {
+                try {
+                  return borgPrivatePass.parse(input);
+                } catch (e) {
+                  return e;
+                }
+              })() as any
+            );
+          }
+
+          const borgPublicCheck = borgPublic.additionalProperties(
+            withValidator.borg
+          );
+          const borgPrivateCheck = borgPublicCheck.private();
+
+          for (const [input] of withValidator.pass) {
+            expect(borgPublicCheck.parse(input)).toEqual(
+              borgPrivateCheck.parse(input)
+            );
+          }
+          for (const [input] of withValidator.fail) {
+            expect(() => borgPublicCheck.parse(input)).toThrow(
+              (() => {
+                try {
+                  return borgPrivateCheck.parse(input);
+                } catch (e) {
+                  return e;
+                }
+              })() as any
+            );
+          }
+        });
+      }
+    );
   });
 }
 /* c8 ignore stop */

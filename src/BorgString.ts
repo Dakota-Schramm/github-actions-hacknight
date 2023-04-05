@@ -152,7 +152,9 @@ export class BorgString<
     return input;
   }
 
-  fromBson(input: _.BsonType<BorgString<TFlags, TLength, TPattern>> | null | undefined) {
+  fromBson(
+    input: _.BsonType<BorgString<TFlags, TLength, TPattern>> | null | undefined
+  ) {
     return input;
   }
 
@@ -208,31 +210,93 @@ export class BorgString<
 
   minLength<const Min extends number | null>(
     length: Min
-  ): BorgString<TFlags, [Min, TLength[1]], TPattern> {
+  ): [_.GreaterThan<Min, TLength[1]>, Min extends null ? true : false] extends [
+    true,
+    false
+  ]
+    ? never
+    : _.IsNegativeNum<Min> extends false
+    ? BorgString<TFlags, [Min, TLength[1]], TPattern>
+    : never {
+    if (length && length < 0)
+      throw new RangeError("Min length cannot be negative");
+    if (length && length > Number.MAX_SAFE_INTEGER)
+      throw new RangeError(
+        `Min length cannot be greater than ${Number.MAX_SAFE_INTEGER}`
+      );
+    if (length !== null && !Number.isInteger(length))
+      throw new TypeError("Min length must be an integer or null");
     const clone = this.copy();
     clone.#min = length;
+    if (clone.#min !== null && clone.#max !== null && clone.#min > clone.#max) {
+      throw new RangeError("Min length cannot be greater than max length");
+    }
     return clone as any;
   }
 
   maxLength<const Max extends number | null>(
     length: Max
-  ): BorgString<TFlags, [TLength[0], Max], TPattern> {
+  ): [
+    _.GreaterThan<TLength[0], Max>,
+    TLength[0] extends null ? true : false
+  ] extends [true, false]
+    ? never
+    : _.IsNegativeNum<Max> extends false
+    ? BorgString<TFlags, [TLength[0], Max], TPattern>
+    : never {
+    if (length && length < 0)
+      throw new RangeError("Max length cannot be negative");
+    if (length && length > Number.MAX_SAFE_INTEGER)
+      throw new RangeError(
+        `Max length cannot be greater than ${Number.MAX_SAFE_INTEGER}`
+      );
+    if (length !== null && !Number.isInteger(length))
+      throw new TypeError("Max length must be an integer or null");
     const clone = this.copy();
     clone.#max = length;
+    if (clone.#min !== null && clone.#max !== null && clone.#min > clone.#max) {
+      throw new RangeError("Max length cannot be greater than max length");
+    }
     return clone as any;
   }
 
   length<const N extends number | null>(
     length: N
-  ): BorgString<TFlags, [N, N], TPattern>;
+  ): _.IsNegativeNum<N> extends false
+    ? BorgString<TFlags, [N, N], TPattern>
+    : never;
   length<const Min extends number | null, const Max extends number | null>(
     minLength: Min,
     maxLength: Max
-  ): BorgString<TFlags, [Min, Max], TPattern>;
+  ): null extends Min | Max
+    ? BorgString<TFlags, [Min, Max], TPattern>
+    : _.GreaterThan<Min, Max> extends true
+    ? never
+    : [_.IsNegativeNum<Min>, _.IsNegativeNum<Max>] extends [false, false]
+    ? BorgString<TFlags, [Min, Max], TPattern>
+    : never;
   length(min: number | null, max?: number | null) {
+    if ((min && min < 0) || (max && max < 0))
+      throw new RangeError("Length cannot be negative");
+    if (
+      (min && min > Number.MAX_SAFE_INTEGER) ||
+      (max && max > Number.MAX_SAFE_INTEGER)
+    )
+      throw new RangeError(
+        `Length cannot be greater than ${Number.MAX_SAFE_INTEGER}`
+      );
+    if (min !== null && !Number.isInteger(min))
+      throw new TypeError(
+        `${max === undefined ? "L" : "Min l"}ength must be an integer or null`
+      );
+    if (max !== undefined && max !== null && !Number.isInteger(max))
+      throw new TypeError("Max length must be an integer or null");
     const clone = this.copy();
     clone.#min = min;
     clone.#max = max === undefined ? min : max;
+    if (clone.#min !== null && clone.#max !== null && clone.#min > clone.#max) {
+      throw new RangeError("Min length cannot be greater than max length");
+    }
     return clone as any;
   }
 
@@ -408,14 +472,24 @@ if (import.meta.vitest) {
         const borgPrivate = borg().private();
         const borgPublic = borgPrivate.public();
 
-        for (const [input, expected] of pass) {
-          expect(borgPublic.parse(input)).toEqual(expected);
-          expect(borgPrivate.parse(input)).toEqual(expected);
+        for (const [input] of pass) {
+          expect(borgPublic.parse(input)).toEqual(borgPrivate.parse(input));
         }
 
-        for (const [input, expected] of fail) {
-          expect(() => borgPublic.parse(input)).toThrow(expected);
-          expect(() => borgPrivate.parse(input)).toThrow(expected);
+        for (const [input] of fail) {
+          let error1: BorgError | unknown = null;
+          let error2: BorgError | unknown = null;
+          try {
+            borgPrivate.parse(input);
+          } catch (e) {
+            error1 = e;
+          }
+          try {
+            borgPublic.parse(input);
+          } catch (e) {
+            error2 = e;
+          }
+          expect(error1).toEqual(error2);
         }
       });
 
@@ -428,21 +502,27 @@ if (import.meta.vitest) {
       });
     }
   );
+
   describe("try() works as expected", () => {
     it.each([...testCases])(
       "parses %s correctly",
-      (_name, borg, { pass, fail }) => {
-        it.each([...pass])("parses %j as %j'", (value, expected) => {
-          const result = borg().try(value);
-          expect(result.ok).toEqual(true);
-          if (result.ok) expect(result.value).toEqual(expected);
-        });
+      (_name, schema, { pass, fail }) => {
+        const borg = schema();
 
-        it.each([...fail])("parses %j without throwing", (value, expected) => {
-          const result = borg().try(value);
-          expect(result.ok).toEqual(false);
+        for (const [input, expected] of pass) {
+          const result = borg.try(input);
+          expect(result.ok, `Expected "${input}" to pass`).toEqual(true);
+          if (result.ok) expect(result.value).toEqual(expected);
+        }
+
+        for (const [input, expected] of fail) {
+          const result = borg.try(input);
+          expect(
+            result.ok,
+            `Expected "${String(input)}" to fail without throwing`
+          ).toEqual(false);
           if (!result.ok) expect(result.error).toBeInstanceOf(expected);
-        });
+        }
       }
     );
   });
@@ -450,13 +530,8 @@ if (import.meta.vitest) {
     it.each([...testCases])(
       "'is()' returns the correct value for %s",
       (_name, borg, { pass, fail }) => {
-        it.each([...pass.map(p => p[0])])("returns true for %j", value => {
-          expect(borg().is(value)).toEqual(true);
-        });
-
-        it.each([...fail.map(f => f[0])])("returns false for %j", value => {
-          expect(borg().is(value)).toEqual(false);
-        });
+        for (const [input] of pass) expect(borg().is(input)).toEqual(true);
+        for (const [input] of fail) expect(borg().is(input)).toEqual(false);
       }
     );
   });
@@ -498,6 +573,88 @@ if (import.meta.vitest) {
     it("returns the correct value for 'fromBSON()'", () => {
       expect(reverted).toEqual(value);
       expect(borg.fromBson(null)).toBe(null);
+    });
+  });
+
+  describe("length methods throw RangeError for values which are out-of-order, negative, or non-finite", () => {
+    const borg = b.string();
+
+    it("throws for negative min", () => {
+      expect(() => borg.minLength(-1)).toThrow(RangeError);
+    });
+
+    it("throws for negative max", () => {
+      expect(() => borg.maxLength(-1)).toThrow(RangeError);
+    });
+
+    it("throws for negative length range", () => {
+      expect(() => borg.length(null, -1)).toThrow(RangeError);
+    });
+
+    it("throws for min > max using length", () => {
+      expect(() => borg.length(2, 1)).toThrow(RangeError);
+    });
+
+    it("throws for min > max using min/max length", () => {
+      expect(() => borg.minLength(2).maxLength(1)).toThrow(RangeError);
+    });
+
+    it("throws for min > max using maxLength after length", () => {
+      expect(() => borg.length(2, 4).maxLength(1)).toThrow(RangeError);
+    });
+
+    it("throws for min > max using minLength after length", () => {
+      expect(() => borg.length(2, 4).minLength(5)).toThrow(RangeError);
+    });
+
+    it("throws for non-finite min", () => {
+      expect(() => borg.minLength(Infinity)).toThrow(RangeError);
+    });
+
+    it("throws for non-finite max", () => {
+      expect(() => borg.maxLength(Infinity)).toThrow(RangeError);
+    });
+
+    it("throws for non-finite range", () => {
+      expect(() => borg.length(10, Infinity)).toThrow(RangeError);
+    });
+  });
+
+  describe("length methods throw TypeError for non-integer values and NaN", () => {
+    const borg = b.string();
+
+    it("throws for non-integer min", () => {
+      expect(() => borg.minLength(1.1)).toThrow(TypeError);
+    });
+
+    it("throws for non-integer max", () => {
+      expect(() => borg.maxLength(1.1)).toThrow(TypeError);
+    });
+
+    it("throws for non-integer fixed length", () => {
+      expect(() => borg.length(1.1)).toThrow(TypeError);
+    });
+
+    it("throws for non-integer length range", () => {
+      expect(() => borg.length(1.1, 2.2)).toThrow(TypeError);
+    });
+
+    it("does not throw for decimal with no fractional part", () => {
+      expect(() => borg.minLength(1.0)).not.toThrow(TypeError);
+      expect(() => borg.maxLength(1.0)).not.toThrow(TypeError);
+      expect(() => borg.length(1.0, 2.0)).not.toThrow(TypeError);
+    });
+
+    it("throws for NaN min", () => {
+      expect(() => borg.minLength(NaN)).toThrow(TypeError);
+    });
+
+    it("throws for NaN max", () => {
+      expect(() => borg.maxLength(NaN)).toThrow(TypeError);
+    });
+
+    it("throws for NaN range", () => {
+      expect(() => borg.length(20, NaN)).toThrow(TypeError);
     });
   });
 }

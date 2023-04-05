@@ -23,13 +23,20 @@ export type Meta = _.PrettyPrint<
         maxItems: number | null;
         minItems: number | null;
       }
-    | {
+    | ({
         kind: "string";
         maxLength: number | null;
         minLength: number | null;
-        pattern: string | undefined;
-        regex: RegExp | undefined;
-      }
+      } & (
+        | {
+            pattern: null;
+            regex: null;
+          }
+        | {
+            pattern: string;
+            regex: RegExp;
+          }
+      ))
     | {
         kind: "number";
         max: number | null;
@@ -91,9 +98,10 @@ export type StringMeta<
     kind: "string";
     maxLength: TLength[1];
     minLength: TLength[0];
-    pattern: TPattern;
-    regex: TPattern extends ".*" ? undefined : RegExp;
-  } & _.GetFlags<TFlags>
+  } & (TPattern extends ".*"
+    ? { pattern: null; regex: null }
+    : { pattern: TPattern; regex: RegExp }) &
+    _.GetFlags<TFlags>
 >;
 
 export type NumberMeta<
@@ -259,7 +267,7 @@ if (import.meta.vitest) {
       },
       {
         name: "BorgArray with min/max",
-        schema: () => B.array(B.number()).minLength(0).maxLength(10),
+        schema: () => B.array(B.number()).minItems(0).maxItems(10),
         kind: "array",
         extraChecks: [
           borg => borg.meta["minItems"] === 0,
@@ -296,6 +304,16 @@ if (import.meta.vitest) {
             ["a", "b", "c"].every(
               key => borg.meta["borgShape"][key] instanceof Borg
             )
+        ]
+      },
+      {
+        name: "BorgUnion",
+        schema: () => B.union(B.number(), B.string()),
+        kind: "union",
+        extraChecks: [
+          borg => borg.meta["borgMembers"] !== null,
+          borg => Array.isArray(borg.meta["borgMembers"]),
+          borg => borg.meta["borgMembers"].length === 2
         ]
       }
     ] satisfies TestCase[];

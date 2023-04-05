@@ -199,8 +199,8 @@ if (import.meta.vitest) {
 
     it("should return the correct schema for an array", () => {
       const borg = B.array(B.string().minLength(5).maxLength(10))
-        .minLength(1)
-        .maxLength(5);
+        .minItems(1)
+        .maxItems(5);
       const schema = getBsonSchema(borg.meta);
       expect(schema).toEqual({
         bsonType: "array",
@@ -214,7 +214,7 @@ if (import.meta.vitest) {
       });
 
       const schema2 = getBsonSchema(
-        borg.minLength(null).maxLength(null).nullable().meta
+        borg.minItems(null).maxItems(null).nullable().meta
       );
       expect(schema2).toEqual({
         bsonType: ["array", "null"],
@@ -233,15 +233,16 @@ if (import.meta.vitest) {
         c: B.boolean(),
         d: B.id(),
         e: B.array(B.string().minLength(5).maxLength(10))
-          .minLength(1)
-          .maxLength(5),
+          .minItems(1)
+          .maxItems(5),
         f: B.object({
           g: B.string().minLength(5).maxLength(10),
           h: B.number().min(5).max(10).optional(),
           i: B.object({}).additionalProperties(B.string().pattern("^a$")),
           j: B.object({}).additionalProperties("passthrough").nullable()
         }).additionalProperties("strip"),
-        k: B.string().optional()
+        k: B.string().optional(),
+        l: B.union(B.string(), B.number().nullable(), B.boolean())
       }).additionalProperties("strict");
 
       const schema = getBsonSchema(borg.meta);
@@ -303,10 +304,17 @@ if (import.meta.vitest) {
           },
           k: {
             bsonType: "string"
+          },
+          l: {
+            oneOf: [
+              { bsonType: "string" },
+              { bsonType: ["double", "null"] },
+              { bsonType: "boolean" }
+            ]
           }
         },
         additionalProperties: false,
-        required: ["a", "b", "c", "d", "e", "f"]
+        required: ["a", "b", "c", "d", "e", "f", "l"]
       });
     });
   });

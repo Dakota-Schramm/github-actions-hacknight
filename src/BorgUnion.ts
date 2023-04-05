@@ -70,6 +70,7 @@ export class BorgUnion<
 
   parse(input: unknown): _.Parsed<_.Type<TMembers[number]>[][number], TFlags> {
     if (input === undefined) {
+      if (this.#borgMembers.some(m => m.meta.optional)) return void 0 as any;
       if (this.#flags.optional) return void 0 as any;
       throw new BorgError(
         `UNION_ERROR: Expected valid type${
@@ -85,19 +86,29 @@ export class BorgUnion<
         }, got null`
       );
     }
-    const errors = [] as { ok: false; error: BorgError }[];
+    if (typeof input === "symbol") {
+      throw new BorgError(
+        `UNION_ERROR: Expected valid type${
+          this.#flags.optional ? " or undefined" : ""
+        }${
+          this.#flags.nullable ? " or null" : ""
+        }, got symbol: ${input.toString()}`
+      );
+    }
+    const errors = [] as BorgError[];
     for (const schema of this.#borgMembers) {
       const result = schema.try(input);
       if (result.ok) return result.value as any;
-      errors.push(result);
+      errors.push(result.error);
     }
+    /* c8 ignore start */
     throw new BorgError(
       `UNION_ERROR: Expected valid type${
         this.#flags.optional ? " or undefined" : ""
       }${
         this.#flags.nullable ? " or null" : ""
       }, got ${input}.\n\nErrors: ${errors
-        .map(({ error }) =>
+        .map(error =>
           typeof error === "string"
             ? error
             : typeof error === "object" &&
@@ -109,6 +120,7 @@ export class BorgUnion<
         )
         .join("\n")}`
     );
+    /* c8 ignore stop */
   }
 
   try(input: unknown): _.TryResult<_.Type<this>, this["meta"]> {
@@ -119,30 +131,70 @@ export class BorgUnion<
         ok: true,
         meta: this.meta
       } as any;
+      /* c8 ignore start */
     } catch (e) {
       if (e instanceof BorgError) return { ok: false, error: e } as any;
-      else
+      else {
         return {
           ok: false,
           error: new BorgError(
             `UNION_ERROR(try): Unknown error parsing: \n\t${JSON.stringify(e)}`
           )
         } as any;
+      }
     }
   }
+  /* c8 ignore stop */
 
   toBson(input: any): _.Parsed<any, TFlags> {
-    if (input === undefined || input === null) return input as any;
-    for (const type of this.#borgMembers)
-      if (type.is(input)) return type.toBson(input) as any;
+    /* c8 ignore next 3 */
+    if (input === undefined || input === null) {
+      return input as any;
+    }
+    for (const type of this.#borgMembers) {
+      if (type.is(input)) {
+        return type.toBson(input) as any;
+      }
+      /* c8 ignore next */
+    }
+    /* c8 ignore next */
     throw new BorgError(`TO_BSON_ERROR: Invalid input`);
   }
 
   fromBson(input: any): _.Parsed<any, TFlags> | null | undefined {
+    /* c8 ignore next */
     if (input === undefined || input === null) return input as any;
-    for (const type of this.#borgMembers)
-      if (type.is(input)) return type.fromBson(input) as any;
-    throw new BorgError(`FROM_BSON_ERROR: Invalid input`);
+
+    for (const type of this.#borgMembers) {
+      try {
+        try {
+          const result = type.fromBson(input);
+          const validated = type.try(result);
+          if (validated.ok) return result as any;
+          else throw validated.error;
+          /* c8 ignore start */
+        } catch (e) {
+          if (!(e instanceof BorgError)) throw e;
+        }
+      } catch (e) {
+        if (e instanceof BorgError) throw e;
+        else {
+          throw new BorgError(
+            `UNION_ERROR(fromBson): Unknown error parsing ${JSON.stringify(
+              input
+            )}: \n\t${JSON.stringify(
+              e &&
+                typeof e === "object" &&
+                "message" in e &&
+                typeof e.message === "string"
+                ? e.message
+                : e
+            )}`
+          );
+        }
+      }
+    }
+    /* c8 ignore stop */
   }
 
   optional(): BorgUnion<_.SetOptional<TFlags>, TMembers> {
@@ -196,16 +248,291 @@ export class BorgUnion<
   }
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////
+///                                                                                       ///
+///  TTTTTTTTTTTTTTTTTTTT EEEEEEEEEEEEEEEEEEEE     SSSSSSSSSSSSS    TTTTTTTTTTTTTTTTTTTT  ///
+///  T//////////////////T E//////////////////E   SS/////////////SS  T//////////////////T  ///
+///  T//////////////////T E//////////////////E SS/////////////////S T//////////////////T  ///
+///  T///TTTT////TTTT///T E/////EEEEEEEEE////E S///////SSSSS//////S T///TTTT////TTTT///T  ///
+///  T///T  T////T  T///T E/////E        EEEEE S/////SS    SSSSSSS  T///T  T////T  T///T  ///
+///  TTTTT  T////T  TTTTT E/////E              S//////SS            TTTTT  T////T  TTTTT  ///
+///         T////T        E/////E               SS/////SSS                 T////T         ///
+///         T////T        E/////EEEEEEEEE         SS//////SS               T////T         ///
+///         T////T        E//////////////E          SS//////SS             T////T         ///
+///         T////T        E/////EEEEEEEEE             SS//////SS           T////T         ///
+///         T////T        E/////E                       SSS/////SS         T////T         ///
+///         T////T        E/////E                         SS//////S        T////T         ///
+///         T////T        E/////E        EEEEE  SSSSSSS    SS/////S        T////T         ///
+///       TT//////TT      E/////EEEEEEEEE////E S//////SSSSS///////S      TT//////TT       ///
+///       T////////T      E//////////////////E S/////////////////SS      T////////T       ///
+///       T////////T      E//////////////////E  SS/////////////SS        T////////T       ///
+///       TTTTTTTTTT      EEEEEEEEEEEEEEEEEEEE    SSSSSSSSSSSSS          TTTTTTTTTT       ///
+///                                                                                       ///
+/////////////////////////////////////////////////////////////////////////////////////////////
+
 /* c8 ignore start */
 //@ts-expect-error - Vite handles this import.meta check
 if (import.meta.vitest) {
-  //@ts-expect-error - Vite handles this top-level await
-  const { describe, it, expect } = await import("vitest");
-  describe("Borg", () => {
-    it("should not be instantiated", () => {
-      //@ts-expect-error - Borg is abstract
-      expect(() => new Borg()).toThrowError(TypeError);
+  const [
+    { describe, it, expect },
+    { default: b },
+    { BorgError },
+    { ObjectId, Double }
+  ] =
+    //@ts-expect-error - Vite handles this top-level await
+    await Promise.all([
+      import("vitest"),
+      import("../src/index"),
+      import("../src/errors"),
+      import("bson")
+    ]);
+
+  type TestCase = [
+    string,
+    () => _.Borg,
+    {
+      pass: [any, any][];
+      fail: [any, any][];
+    }
+  ];
+
+  const testCases = [
+    [
+      "a simple union",
+      () => b.union(b.string(), b.number()),
+      {
+        pass: [
+          ["hello", "hello"],
+          [123, 123]
+        ],
+        fail: [
+          [true, BorgError],
+          [false, BorgError],
+          [{}, BorgError],
+          [[], BorgError],
+          [() => {}, BorgError],
+          [Symbol(), BorgError],
+          [BigInt(123), BorgError]
+        ]
+      }
+    ],
+    [
+      "a union with a nested union",
+      () => b.union(b.string(), b.union(b.number(), b.boolean())),
+      {
+        pass: [
+          ["hello", "hello"],
+          [123, 123],
+          [true, true],
+          [false, false]
+        ],
+        fail: [
+          [{}, BorgError],
+          [[], BorgError],
+          [() => {}, BorgError],
+          [Symbol(), BorgError],
+          [BigInt(123), BorgError]
+        ]
+      }
+    ],
+    [
+      "a union with an optional member",
+      () => b.union(b.string(), b.number().optional()),
+      {
+        pass: [
+          ["hello", "hello"],
+          [123, 123],
+          [undefined, undefined]
+        ],
+        fail: [
+          [true, BorgError],
+          [false, BorgError],
+          [{}, BorgError],
+          [[], BorgError],
+          [() => {}, BorgError],
+          [Symbol(), BorgError],
+          [BigInt(123), BorgError]
+        ]
+      }
+    ],
+    [
+      "a union in combination with an array",
+      () => b.array(b.union(b.string(), b.number())),
+      {
+        pass: [
+          [
+            ["hello", 123],
+            ["hello", 123]
+          ]
+        ],
+        fail: [[["hello", true], BorgError]]
+      }
+    ],
+    [
+      "a union in combination with an object",
+      () => b.object({ a: b.union(b.string(), b.number()) }),
+      {
+        pass: [
+          [{ a: "hello" }, { a: "hello" }],
+          [{ a: 123 }, { a: 123 }]
+        ],
+        fail: [[{ a: true }, BorgError]]
+      }
+    ],
+    [
+      "a union in combination with an object with optional members",
+      () => b.object({ a: b.union(b.string(), b.number()).optional() }),
+      {
+        pass: [
+          [{ a: "hello" }, { a: "hello" }],
+          [{ a: 123 }, { a: 123 }],
+          [{}, {}]
+        ],
+        fail: [[{ a: true }, BorgError]]
+      }
+    ],
+    [
+      "a union of objects with properties in common",
+      () =>
+        b.union(
+          b.object({ a: b.string(), b: b.number() }),
+          b.object({ a: b.number(), c: b.number() })
+        ),
+      {
+        pass: [
+          [
+            { a: "hello", b: 123 },
+            { a: "hello", b: 123 }
+          ],
+          [
+            { a: 123, c: 456 },
+            { a: 123, c: 456 }
+          ]
+        ],
+        fail: [
+          [{ a: "hello", c: 123 }, BorgError],
+          [{ a: 123, b: 456 }, BorgError]
+        ]
+      }
+    ]
+  ] satisfies TestCase[];
+
+  describe.each([...testCases])(
+    "correctly parses %s",
+    (_name, borg, { pass, fail }) => {
+      it("parses the same whether marked private or public", () => {
+        const borgPrivate = borg().private();
+        const borgPublic = borgPrivate.public();
+
+        for (const [input, expected] of pass) {
+          expect(borgPublic.parse(input)).toEqual(expected);
+          expect(borgPrivate.parse(input)).toEqual(expected);
+        }
+
+        for (const [input, expected] of fail) {
+          expect(() => borgPublic.parse(input)).toThrow(expected);
+          expect(() => borgPrivate.parse(input)).toThrow(expected);
+        }
+      });
+
+      it.each([...pass])("parses '%s' as '%s'", (value, expected) => {
+        expect(borg().parse(value)).toEqual(expected);
+      });
+
+      it.each([...fail])("throws on '%s'", (value, expected) => {
+        expect(() => borg().parse(value)).toThrow(expected);
+      });
+    }
+  );
+
+  describe("try() works as expected", () => {
+    it.each([...testCases])(
+      "parses %s correctly",
+      (_name, schema, { pass, fail }) => {
+        const borg = schema();
+
+        for (const [input, expected] of pass) {
+          const result = borg.try(input);
+          expect(result.ok, `Expected "${input}" to pass`).toEqual(true);
+          if (result.ok) expect(result.value).toEqual(expected);
+        }
+
+        for (const [input, expected] of fail) {
+          const result = borg.try(input);
+          expect(
+            result.ok,
+            `Expected "${String(input)}" to fail without throwing`
+          ).toEqual(false);
+          if (!result.ok) expect(result.error).toBeInstanceOf(expected);
+        }
+      }
+    );
+  });
+  describe("is() works as expected", () => {
+    it.each([...testCases])(
+      "'is()' returns the correct value for %s",
+      (_name, borg, { pass, fail }) => {
+        for (const [input] of pass) expect(borg().is(input)).toEqual(true);
+        for (const [input] of fail) expect(borg().is(input)).toEqual(false);
+      }
+    );
+  });
+
+  describe("converts to and from BSON correctly", () => {
+    const borg = b.union(
+      b.string(),
+      b.number(),
+      b.boolean(),
+      b.id(),
+      b.object({ a: b.string(), b: b.number(), c: b.id() })
+    );
+    const value1 = { a: "hello", b: 123, c: "5f5b5b5b5b5b5b5b5b5b5b5b" };
+    const value2 = "hello";
+    const value3 = 123;
+    const value4 = true;
+    const value5 = false;
+    const value6 = ObjectId.createFromHexString("5f5b5b5b5b5b5b5b5b5b5b5b");
+
+    const asBson1 = borg.toBson(value1);
+    const asBson2 = borg.toBson(value2);
+    const asBson3 = borg.toBson(value3);
+    const asBson4 = borg.toBson(value4);
+    const asBson5 = borg.toBson(value5);
+    const asBson6 = borg.toBson(value6);
+
+    const reverted1 = borg.fromBson(asBson1);
+    const reverted2 = borg.fromBson(asBson2);
+    const reverted3 = borg.fromBson(asBson3);
+    const reverted4 = borg.fromBson(asBson4);
+    const reverted5 = borg.fromBson(asBson5);
+    const reverted6 = borg.fromBson(asBson6);
+
+    it("returns the correct BSON value for 'toBSON()'", () => {
+      expect(asBson1).toEqual({
+        a: "hello",
+        b: new Double(123),
+        c: ObjectId.createFromHexString("5f5b5b5b5b5b5b5b5b5b5b5b")
+      });
+      expect(asBson2).toEqual("hello");
+      expect(asBson3).toEqual(new Double(123));
+      expect(asBson4).toEqual(true);
+      expect(asBson5).toEqual(false);
+      expect(asBson6).toEqual(
+        ObjectId.createFromHexString("5f5b5b5b5b5b5b5b5b5b5b5b")
+      );
+    });
+
+    it("returns the correct value for 'fromBSON()'", () => {
+      expect(reverted1).toEqual({
+        a: "hello",
+        b: 123,
+        c: "5f5b5b5b5b5b5b5b5b5b5b5b"
+      });
+      expect(reverted2).toEqual(value2);
+      expect(reverted3).toEqual(value3);
+      expect(reverted4).toEqual(value4);
+      expect(reverted5).toEqual(value5);
+      expect(reverted6).toEqual(value6.toHexString());
     });
   });
 }
-/* c8 ignore stop */

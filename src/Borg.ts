@@ -140,15 +140,11 @@ if (import.meta.vitest) {
   describe(".optional(), .required()", () => {
     it.each([...testSchemas])(
       "should throw errors that reflect the optional/nullable state",
-      (borg, value) => {
+      (borg, _) => {
         const borgOptional = borg.optional();
         const borgNullable = borgOptional.nullable();
-        expect(() =>
-          borgOptional.parse(typeof value === "string" ? {} : value + "")
-        ).toThrow(BorgError);
-        expect(() =>
-          borgNullable.parse(typeof value === "string" ? {} : value + "")
-        ).toThrow(BorgError);
+        expect(() => borgOptional.parse(Symbol())).toThrow(BorgError);
+        expect(() => borgNullable.parse(Symbol())).toThrow(BorgError);
       }
     );
 

@@ -98,9 +98,10 @@ export class BorgBoolean<
         ok: true,
         meta: this.meta
       } as any;
+      /* c8 ignore start */
     } catch (e) {
       if (e instanceof BorgError) return { ok: false, error: e } as any;
-      else
+      else {
         return {
           ok: false,
           error: new BorgError(
@@ -109,14 +110,18 @@ export class BorgBoolean<
             )}`
           )
         } as any;
+      }
     }
+    /* c8 ignore stop */
   }
 
   toBson(input: _.Parsed<boolean, TFlags>): _.Parsed<boolean, TFlags> {
     return input as any;
   }
 
-  fromBson(input: _.BsonType<BorgBoolean<TFlags>>): _.Parsed<boolean, TFlags> | null | undefined {
+  fromBson(
+    input: _.BsonType<BorgBoolean<TFlags>>
+  ): _.Parsed<boolean, TFlags> | null | undefined {
     return input;
   }
 
@@ -184,3 +189,156 @@ if (import.meta.vitest) {
   });
 }
 /* c8 ignore stop */
+
+//////////////////////////////////////////////////////////////////////////////////////////////
+///                                                                                       ///
+///  TTTTTTTTTTTTTTTTTTTT EEEEEEEEEEEEEEEEEEEE     SSSSSSSSSSSSS    TTTTTTTTTTTTTTTTTTTT  ///
+///  T//////////////////T E//////////////////E   SS/////////////SS  T//////////////////T  ///
+///  T//////////////////T E//////////////////E SS/////////////////S T//////////////////T  ///
+///  T///TTTT////TTTT///T E/////EEEEEEEEE////E S///////SSSSS//////S T///TTTT////TTTT///T  ///
+///  T///T  T////T  T///T E/////E        EEEEE S/////SS    SSSSSSS  T///T  T////T  T///T  ///
+///  TTTTT  T////T  TTTTT E/////E              S//////SS            TTTTT  T////T  TTTTT  ///
+///         T////T        E/////E               SS/////SSS                 T////T         ///
+///         T////T        E/////EEEEEEEEE         SS//////SS               T////T         ///
+///         T////T        E//////////////E          SS//////SS             T////T         ///
+///         T////T        E/////EEEEEEEEE             SS//////SS           T////T         ///
+///         T////T        E/////E                       SSS/////SS         T////T         ///
+///         T////T        E/////E                         SS//////S        T////T         ///
+///         T////T        E/////E        EEEEE  SSSSSSS    SS/////S        T////T         ///
+///       TT//////TT      E/////EEEEEEEEE////E S//////SSSSS///////S      TT//////TT       ///
+///       T////////T      E//////////////////E S/////////////////SS      T////////T       ///
+///       T////////T      E//////////////////E  SS/////////////SS        T////////T       ///
+///       TTTTTTTTTT      EEEEEEEEEEEEEEEEEEEE    SSSSSSSSSSSSS          TTTTTTTTTT       ///
+///                                                                                       ///
+/////////////////////////////////////////////////////////////////////////////////////////////
+
+/* c8 ignore start */
+//@ts-expect-error - Vite handles this import.meta check
+if (import.meta.vitest) {
+  const [{ describe, it, expect }, { default: b }, { BorgError }] =
+    //@ts-expect-error - Vite handles this top-level await
+    await Promise.all([
+      import("vitest"),
+      import("../src/index"),
+      import("../src/errors")
+    ]);
+
+  type TestCase = [
+    string,
+    () => _.Borg,
+    {
+      pass: [any, any][];
+      fail: [any, any][];
+    }
+  ];
+
+  const testCases = [
+    [
+      "a boolean",
+      () => b.boolean(),
+      {
+        pass: [
+          [true, true],
+          [false, false],
+          [Boolean("this is true"), true],
+          [Boolean(""), false],
+          [!!0, false],
+          [!!1, true],
+          [!0, true],
+          [!1, false]
+        ],
+        fail: [
+          [null, BorgError],
+          [undefined, BorgError],
+          [0n, BorgError],
+          [0, BorgError],
+          [NaN, BorgError],
+          [Infinity, BorgError],
+          [-Infinity, BorgError],
+          ["true", BorgError],
+          ["", BorgError],
+          [[], BorgError],
+          [Symbol(), BorgError]
+        ]
+      }
+    ]
+  ] satisfies TestCase[];
+
+  describe.each([...testCases])(
+    "correctly parses %s",
+    (_name, borg, { pass, fail }) => {
+      it("parses the same whether marked private or public", () => {
+        const borgPrivate = borg().private();
+        const borgPublic = borgPrivate.public();
+
+        for (const [input, expected] of pass) {
+          expect(borgPublic.parse(input)).toEqual(expected);
+          expect(borgPrivate.parse(input)).toEqual(expected);
+        }
+
+        for (const [input, expected] of fail) {
+          expect(() => borgPublic.parse(input)).toThrow(expected);
+          expect(() => borgPrivate.parse(input)).toThrow(expected);
+        }
+      });
+
+      it.each([...pass])("parses '%s' as '%s'", (value, expected) => {
+        expect(borg().parse(value)).toEqual(expected);
+      });
+
+      it.each([...fail])("throws on '%s'", (value, expected) => {
+        expect(() => borg().parse(value)).toThrow(expected);
+      });
+    }
+  );
+
+  describe("try() works as expected", () => {
+    it.each([...testCases])(
+      "parses %s correctly",
+      (_name, schema, { pass, fail }) => {
+        const borg = schema();
+
+        for (const [input, expected] of pass) {
+          const result = borg.try(input);
+          expect(result.ok, `Expected "${input}" to pass`).toEqual(true);
+          if (result.ok) expect(result.value).toEqual(expected);
+        }
+
+        for (const [input, expected] of fail) {
+          const result = borg.try(input);
+          expect(
+            result.ok,
+            `Expected "${String(input)}" to fail without throwing`
+          ).toEqual(false);
+          if (!result.ok) expect(result.error).toBeInstanceOf(expected);
+        }
+      }
+    );
+  });
+  describe("is() works as expected", () => {
+    it.each([...testCases])(
+      "'is()' returns the correct value for %s",
+      (_name, borg, { pass, fail }) => {
+        for (const [input] of pass) expect(borg().is(input)).toEqual(true);
+        for (const [input] of fail) expect(borg().is(input)).toEqual(false);
+      }
+    );
+  });
+
+  describe("converts to and from BSON correctly", () => {
+    const borg = b.boolean().nullable();
+    const value = true;
+    const asBson = borg.toBson(value);
+    const reverted = borg.fromBson(asBson);
+
+    it("returns the correct BSON value for 'toBSON()'", () => {
+      expect(asBson).toEqual(value);
+      expect(borg.toBson(null)).toBe(null);
+    });
+
+    it("returns the correct value for 'fromBSON()'", () => {
+      expect(reverted).toEqual(value);
+      expect(borg.fromBson(null)).toBe(null);
+    });
+  });
+}

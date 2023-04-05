@@ -7,13 +7,105 @@ type StripSchemasDeep<T> = T extends Extract<Meta, { kind: "object" }>
     }
   : T extends Extract<Meta, { kind: "array" }>
   ? StripSchemasDeep<T["borgItems"]["meta"]>[]
-  : T extends Extract<Meta, { kind: "union" }>
+  : T extends Extract<Meta, { kind: "union" }>`
   ? Array<StripSchemasDeep<T["borgMembers"][number]["meta"]>>[number]
   : T extends Borg
   ? T["meta"]
   : T;
  */
-type RequirdKeys<TObj extends object> = TObj extends {
+
+export type IsNegativeNum<T extends number | string | null> = TrimLeft<
+  `${T}`,
+  " "
+> extends `-${infer Val extends string}`
+  ? TrimLeft<TrimRight<Val, 0>, 0> extends ``
+    ? false
+    : TrimRight<`${Val}`, " "> extends "Infinity"
+    ? false
+    : true
+  : false;
+
+type StringIsLongerThan<
+  TLong extends string,
+  TShort extends string
+> = TLong extends `${infer _}${infer LTail}`
+  ? TShort extends `${infer _}${infer STail}`
+    ? StringIsLongerThan<LTail, STail>
+    : true
+  : false;
+
+type TrimLeft<
+  T extends string,
+  C extends string | number
+> = T extends `${C}${infer Tail}` ? TrimLeft<Tail, C> : T;
+
+type TrimRight<
+  T extends string,
+  C extends string | number
+> = T extends `${infer Head}${C}` ? TrimRight<Head, C> : T;
+
+type StrToNum<T extends string> = T extends `${infer N extends number}`
+  ? N
+  : never;
+
+export type GreaterThan<
+  A extends number | string | null,
+  B extends number | string | null
+> = [IsNegativeNum<A>, IsNegativeNum<B>] extends [true, false] // "A" is negative, "B" is positive
+  ? false
+  : [IsNegativeNum<A>, IsNegativeNum<B>] extends [false, true] // "A" is positive, "B" is negative
+  ? true
+  : [`${A}`, `${B}`] extends [
+      `${infer _ extends "-" | ""}0`,
+      `${infer _ extends "-" | ""}0`
+    ] // both are 0, even if one is -0
+  ? false
+  : [`${A}`, `${B}`] extends [`${B}`, `${A}`] // they are the same number
+  ? false
+  : StringIsLongerThan<
+      TrimLeft<`${A}`, 0 | " " | "-">,
+      TrimLeft<`${B}`, 0 | " " | "-">
+    > extends true // Without leading zeroes, spaces, or signs, "A" has more digits than "B" (or they are the same length)
+  ? IsNegativeNum<A> extends true // "A" is negative (so is "B" - we checked that the signs are the same above)
+    ? false // A longer negative number is not greater than a shorter negative number
+    : true // A longer positive number is greater than a shorter positive number
+  : StringIsLongerThan<
+      TrimLeft<`${B}`, 0 | " " | "-">,
+      TrimLeft<`${A}`, 0 | " " | "-">
+    > extends true // Without leading zeroes, spaces, or signs, "B" has more digits than "A"
+  ? IsNegativeNum<A> extends true // "A" is negative (so is "B" - we checked that the signs are the same above)
+    ? true // A longer negative number is greater than a shorter negative number
+    : false // A longer positive number is not greater than a shorter positive number
+  : // Without leading zeroes, "A" and "B" have the same number of digits
+  [`${A}`, `${B}`] extends [
+      `${infer AHead}${infer ATail}`, // "A" is split into its first digit and the rest of the number
+      `${infer BHead}${infer BTail}` // "B" is split into its first digit and the rest of the number
+    ]
+  ? [true] extends [
+      // The expression inside this array would be the final result IF we ignore negative numbers
+      AHead extends BHead
+        ? GreaterThan<ATail, BTail>
+        : DigitIsGreater<StrToNum<AHead>, StrToNum<BHead>>
+    ] // We wrap the result (so we can check if it is true or false) because we must invert the result if both numbers are negative
+    ? IsNegativeNum<A> extends true
+      ? false
+      : true
+    : IsNegativeNum<A> extends true
+    ? true
+    : false
+  : never;
+
+type DigitIsGreater<
+  A extends number,
+  B extends number,
+  Count extends 1[] = []
+> = Count["length"] extends A
+  ? false
+  : Count["length"] extends B
+  ? true
+  : DigitIsGreater<A, B, [...Count, 1]>;
+
+type RequiredKeys<TObj extends object> = TObj extends {
   [_ in infer K]: any;
 }
   ? keyof { [k in K as undefined extends TObj[k] ? never : k]: k }
@@ -22,7 +114,7 @@ type RequirdKeys<TObj extends object> = TObj extends {
 export type RequiredKeysArray<TShape extends { [key: string]: Borg }> =
   TShape extends infer T extends { [key: string]: Borg }
     ? Array<
-        RequirdKeys<{
+        RequiredKeys<{
           [k in keyof T]: Type<T[k]>;
         }>
       >
@@ -150,10 +242,348 @@ type SetFLags<TFlags extends Flags, TOps extends FlagOps> = [
 
 //@ts-expect-error - Vite handles this import.meta check
 if (import.meta.vitest) {
-  //@ts-expect-error - Vite handles this top-level await
-  const { describe, it, expect } = await import("vitest");
-  describe("Type Utilities", () => {
-    it.todo("should produce the expected types");
+  const [{ describe, it, assertType }, { default: b }] =
+    //@ts-expect-error - Vite handles this top-level await
+    await Promise.all([import("vitest"), import("../")]);
+
+  describe("IsNegativeNum type", () => {
+    it("produces `true` on negative integers", () => {
+      assertType<IsNegativeNum<-1>>(true);
+      assertType<IsNegativeNum<-99>>(true);
+      assertType<IsNegativeNum<-9999999999>>(true);
+      assertType<IsNegativeNum<-9007199254740991>>(true);
+    });
+    it("produces `false` on positive integers", () => {
+      assertType<IsNegativeNum<1>>(false);
+      assertType<IsNegativeNum<99>>(false);
+      assertType<IsNegativeNum<9999999999>>(false);
+      assertType<IsNegativeNum<9007199254740991>>(false);
+    });
+    it("produces `true` on negative floats", () => {
+      assertType<IsNegativeNum<-1.1>>(true);
+      assertType<IsNegativeNum<-99.99>>(true);
+      assertType<IsNegativeNum<-9999999999.9999999999>>(true);
+      assertType<IsNegativeNum<-9007199254740991.1>>(true);
+    });
+    it("produces `false` on positive floats", () => {
+      assertType<IsNegativeNum<1.1>>(false);
+      assertType<IsNegativeNum<99.99>>(false);
+      assertType<IsNegativeNum<9999999999.9999999999>>(false);
+      assertType<IsNegativeNum<9007199254740991.1>>(false);
+    });
+    it("produces `false` on both `0` and `-0`", () => {
+      assertType<IsNegativeNum<0>>(false);
+      assertType<IsNegativeNum<-0>>(false);
+    });
+    it("produces `false` on `NaN`, `null`, `Infinity` and -Infinity", () => {
+      const NegativeInfinity = -Infinity;
+      assertType<IsNegativeNum<typeof NaN>>(false);
+      assertType<IsNegativeNum<null>>(false);
+      assertType<IsNegativeNum<typeof NegativeInfinity>>(false);
+      assertType<IsNegativeNum<typeof Infinity>>(false);
+    });
+    it("works on strings", () => {
+      assertType<IsNegativeNum<"0">>(false);
+      assertType<IsNegativeNum<"1">>(false);
+      assertType<IsNegativeNum<"99">>(false);
+      assertType<IsNegativeNum<"9007199254740991">>(false);
+      assertType<IsNegativeNum<"0.1">>(false);
+      assertType<IsNegativeNum<"99.99">>(false);
+      assertType<IsNegativeNum<"9999999999.9999999999">>(false);
+      assertType<IsNegativeNum<"9007199254740991.1">>(false);
+      assertType<IsNegativeNum<"NaN">>(false);
+      assertType<IsNegativeNum<"Infinity">>(false);
+      assertType<IsNegativeNum<"-Infinity">>(false);
+      assertType<IsNegativeNum<"-1">>(true);
+      assertType<IsNegativeNum<"-99">>(true);
+      assertType<IsNegativeNum<"-9007199254740991">>(true);
+      assertType<IsNegativeNum<"-0.1">>(true);
+      assertType<IsNegativeNum<"-99.99">>(true);
+      assertType<IsNegativeNum<"-9999999999.9999999999">>(true);
+      assertType<IsNegativeNum<"-9007199254740991.1">>(true);
+    });
+
+    it("works on strings with leading and trailing spaces or zeroes", () => {
+      assertType<IsNegativeNum<" 0">>(false);
+      assertType<IsNegativeNum<" 1">>(false);
+      assertType<IsNegativeNum<" 99">>(false);
+      assertType<IsNegativeNum<" 0.1">>(false);
+      assertType<IsNegativeNum<" 99.99">>(false);
+      assertType<IsNegativeNum<"NaN">>(false);
+      assertType<IsNegativeNum<"Infinity">>(false);
+      assertType<IsNegativeNum<" -Infinity">>(false);
+      assertType<IsNegativeNum<" -0">>(false);
+      assertType<IsNegativeNum<" -1">>(true);
+      assertType<IsNegativeNum<" -99">>(true);
+      assertType<IsNegativeNum<" -0.1">>(true);
+      assertType<IsNegativeNum<" -99.99">>(true);
+      assertType<IsNegativeNum<"0 ">>(false);
+      assertType<IsNegativeNum<"1 ">>(false);
+      assertType<IsNegativeNum<"99 ">>(false);
+      assertType<IsNegativeNum<"0.1 ">>(false);
+      assertType<IsNegativeNum<"99.99 ">>(false);
+      assertType<IsNegativeNum<"NaN ">>(false);
+      assertType<IsNegativeNum<"Infinity ">>(false);
+      assertType<IsNegativeNum<" -Infinity ">>(false);
+      assertType<IsNegativeNum<" -1 ">>(true);
+      assertType<IsNegativeNum<" -99 ">>(true);
+      assertType<IsNegativeNum<" -0.1 ">>(true);
+      assertType<IsNegativeNum<" -99.99 ">>(true);
+      assertType<IsNegativeNum<" 0 ">>(false);
+      assertType<IsNegativeNum<" 1 ">>(false);
+      assertType<IsNegativeNum<" 99 ">>(false);
+      assertType<IsNegativeNum<" 0.1 ">>(false);
+      assertType<IsNegativeNum<"000">>(false);
+      assertType<IsNegativeNum<"001">>(false);
+      assertType<IsNegativeNum<"099">>(false);
+      assertType<IsNegativeNum<"000.1">>(false);
+      assertType<IsNegativeNum<"099.99">>(false);
+      assertType<IsNegativeNum<"NaN">>(false);
+      assertType<IsNegativeNum<"Infinity">>(false);
+      assertType<IsNegativeNum<" -Infinity">>(false);
+      assertType<IsNegativeNum<" -000">>(false);
+      assertType<IsNegativeNum<" -001">>(true);
+      assertType<IsNegativeNum<" -000.1">>(true);
+      assertType<IsNegativeNum<" -099.99">>(true);
+      assertType<IsNegativeNum<"000 ">>(false);
+      assertType<IsNegativeNum<"099 ">>(false);
+      assertType<IsNegativeNum<"000.1 ">>(false);
+      assertType<IsNegativeNum<"099.99 ">>(false);
+      assertType<IsNegativeNum<" -001 ">>(true);
+    });
+  });
+
+  describe("StringIsLongerThan type", () => {
+    it("produces `true` when the left string is longer than the right", () => {
+      assertType<StringIsLongerThan<"a", "">>(true);
+      assertType<StringIsLongerThan<"aa", "a">>(true);
+      assertType<StringIsLongerThan<"aaa", "aa">>(true);
+    });
+    it("produces `false` when the left string is shorter than the right", () => {
+      assertType<StringIsLongerThan<"a", "a">>(false);
+      assertType<StringIsLongerThan<"a", "aa">>(false);
+      assertType<StringIsLongerThan<"aa", "aa">>(false);
+      assertType<StringIsLongerThan<"aa", "aaa">>(false);
+      assertType<StringIsLongerThan<"", "">>(false);
+      assertType<StringIsLongerThan<"", "a">>(false);
+    });
+  });
+
+  describe("GreaterThan type", () => {
+    it("Works when the left number is negative", () => {
+      assertType<GreaterThan<-4, 4>>(false);
+      assertType<GreaterThan<-4, 5>>(false);
+      assertType<GreaterThan<-5, 4>>(false);
+      assertType<GreaterThan<-10, 20>>(false);
+      assertType<GreaterThan<-10, 5>>(false);
+      assertType<GreaterThan<-1111, 11111>>(false);
+      assertType<GreaterThan<-11111, 1111>>(false);
+      assertType<GreaterThan<-23456, 3456>>(false);
+      assertType<GreaterThan<-23456, 2345>>(false);
+      assertType<GreaterThan<-2345, 23456>>(false);
+      assertType<GreaterThan<-3456, 23456>>(false);
+    });
+
+    it("Works when the right number is negative", () => {
+      assertType<GreaterThan<4, -4>>(true);
+      assertType<GreaterThan<4, -5>>(true);
+      assertType<GreaterThan<5, -4>>(true);
+      assertType<GreaterThan<10, -20>>(true);
+      assertType<GreaterThan<10, -5>>(true);
+      assertType<GreaterThan<1111, -11111>>(true);
+      assertType<GreaterThan<11111, -1111>>(true);
+      assertType<GreaterThan<23456, -3456>>(true);
+      assertType<GreaterThan<23456, -2345>>(true);
+      assertType<GreaterThan<2345, -23456>>(true);
+      assertType<GreaterThan<3456, -23456>>(true);
+    });
+
+    it("Works when both numbers are negative", () => {
+      assertType<GreaterThan<-4, -4>>(false);
+      assertType<GreaterThan<-4, -5>>(true);
+      assertType<GreaterThan<-5, -4>>(false);
+      assertType<GreaterThan<-10, -20>>(true);
+      assertType<GreaterThan<-10, -5>>(false);
+      assertType<GreaterThan<-1111, -11111>>(true);
+      assertType<GreaterThan<-11111, -1111>>(false);
+      assertType<GreaterThan<-23456, -3456>>(false);
+      assertType<GreaterThan<-23456, -2345>>(false);
+      assertType<GreaterThan<-2345, -23456>>(true);
+      assertType<GreaterThan<-3456, -23456>>(true);
+    });
+
+    it("Works when both numbers are positive", () => {
+      assertType<GreaterThan<4, 4>>(false);
+      assertType<GreaterThan<4, 5>>(false);
+      assertType<GreaterThan<5, 4>>(true);
+      assertType<GreaterThan<10, 20>>(false);
+      assertType<GreaterThan<10, 5>>(true);
+      assertType<GreaterThan<1111, 11111>>(false);
+      assertType<GreaterThan<11111, 1111>>(true);
+      assertType<GreaterThan<23456, 3456>>(true);
+      assertType<GreaterThan<23456, 2345>>(true);
+      assertType<GreaterThan<2345, 23456>>(false);
+      assertType<GreaterThan<3456, 23456>>(false);
+    });
+
+    it("Works when any number is `0` or `-0`", () => {
+      assertType<GreaterThan<0, 0>>(false);
+      assertType<GreaterThan<-0, -0>>(false);
+      assertType<GreaterThan<-0, 0>>(false);
+      assertType<GreaterThan<0, -0>>(false);
+      assertType<GreaterThan<0, 1>>(false);
+      assertType<GreaterThan<1, 0>>(true);
+      assertType<GreaterThan<0, -1>>(true);
+      assertType<GreaterThan<-1, 0>>(false);
+      assertType<GreaterThan<1, -0>>(true);
+      assertType<GreaterThan<-0, 1>>(false);
+      assertType<GreaterThan<-1, -0>>(false);
+    });
+
+    it("Works for floats", () => {
+      assertType<GreaterThan<0.1, 0.1>>(false);
+      assertType<GreaterThan<0.1, 0.2>>(false);
+      assertType<GreaterThan<0.2, 0.1>>(true);
+      assertType<GreaterThan<0.1, -0.1>>(true);
+      assertType<GreaterThan<-0.1, 0.1>>(false);
+      assertType<GreaterThan<-0.1, -0.1>>(false);
+      assertType<GreaterThan<-0.1, -0.2>>(true);
+      assertType<GreaterThan<-0.2, -0.1>>(false);
+    });
+
+    it("Works for strings in the same way as numbers", () => {
+      assertType<GreaterThan<"-4", "4">>(false);
+      assertType<GreaterThan<"-4", "5">>(false);
+      assertType<GreaterThan<"-5", "4">>(false);
+      assertType<GreaterThan<"-10", "20">>(false);
+      assertType<GreaterThan<"-10", "5">>(false);
+      assertType<GreaterThan<"-1111", "11111">>(false);
+      assertType<GreaterThan<"-11111", "1111">>(false);
+      assertType<GreaterThan<"-23456", "3456">>(false);
+      assertType<GreaterThan<"-23456", "2345">>(false);
+      assertType<GreaterThan<"-2345", "23456">>(false);
+      assertType<GreaterThan<"-3456", "23456">>(false);
+      assertType<GreaterThan<"4", "-4">>(true);
+      assertType<GreaterThan<"4", "-5">>(true);
+      assertType<GreaterThan<"5", "-4">>(true);
+      assertType<GreaterThan<"10", "-20">>(true);
+      assertType<GreaterThan<"10", "-5">>(true);
+      assertType<GreaterThan<"1111", "-11111">>(true);
+      assertType<GreaterThan<"11111", "-1111">>(true);
+      assertType<GreaterThan<"23456", "-3456">>(true);
+      assertType<GreaterThan<"23456", "-2345">>(true);
+      assertType<GreaterThan<"2345", "-23456">>(true);
+      assertType<GreaterThan<"3456", "-23456">>(true);
+      assertType<GreaterThan<"-4", "-4">>(false);
+      assertType<GreaterThan<"-4", "-5">>(true);
+      assertType<GreaterThan<"-5", "-4">>(false);
+      assertType<GreaterThan<"-10", "-20">>(true);
+      assertType<GreaterThan<"-10", "-5">>(false);
+      assertType<GreaterThan<"-1111", "-11111">>(true);
+      assertType<GreaterThan<"-11111", "-1111">>(false);
+      assertType<GreaterThan<"-23456", "-3456">>(false);
+      assertType<GreaterThan<"-23456", "-2345">>(false);
+      assertType<GreaterThan<"-2345", "-23456">>(true);
+      assertType<GreaterThan<"-3456", "-23456">>(true);
+      assertType<GreaterThan<"4", "4">>(false);
+      assertType<GreaterThan<"4", "5">>(false);
+      assertType<GreaterThan<"5", "4">>(true);
+      assertType<GreaterThan<"10", "20">>(false);
+      assertType<GreaterThan<"10", "5">>(true);
+      assertType<GreaterThan<"1111", "11111">>(false);
+      assertType<GreaterThan<"11111", "1111">>(true);
+      assertType<GreaterThan<"23456", "3456">>(true);
+      assertType<GreaterThan<"23456", "2345">>(true);
+      assertType<GreaterThan<"2345", "23456">>(false);
+      assertType<GreaterThan<"3456", "23456">>(false);
+      assertType<GreaterThan<"0", "0">>(false);
+      assertType<GreaterThan<"-0", "-0">>(false);
+      assertType<GreaterThan<"-0", "0">>(false);
+      assertType<GreaterThan<"0", "-0">>(false);
+      assertType<GreaterThan<"0", "1">>(false);
+      assertType<GreaterThan<"1", "0">>(true);
+      assertType<GreaterThan<"0", "-1">>(true);
+      assertType<GreaterThan<"-1", "0">>(false);
+      assertType<GreaterThan<"1", "-0">>(true);
+      assertType<GreaterThan<"-0", "1">>(false);
+      assertType<GreaterThan<"-1", "-0">>(false);
+      assertType<GreaterThan<"0.1", "0.1">>(false);
+      assertType<GreaterThan<"0.1", "0.2">>(false);
+      assertType<GreaterThan<"0.2", "0.1">>(true);
+      assertType<GreaterThan<"0.1", "-0.1">>(true);
+      assertType<GreaterThan<"-0.1", "0.1">>(false);
+      assertType<GreaterThan<"-0.1", "-0.1">>(false);
+      assertType<GreaterThan<"-0.1", "-0.2">>(true);
+      assertType<GreaterThan<"-0.2", "-0.1">>(false);
+    });
+
+    it("works for strings with leading and/or trailing 0s or spaces", () => {
+      assertType<GreaterThan<" 0", "0">>(false);
+      assertType<GreaterThan<"0", " 0">>(false);
+      assertType<GreaterThan<" 0", " 0">>(false);
+      assertType<GreaterThan<" 0", " 1">>(false);
+      assertType<GreaterThan<" 1", " 0">>(true);
+      assertType<GreaterThan<" 0", "-1">>(true);
+      assertType<GreaterThan<"-1", " 0">>(false);
+      assertType<GreaterThan<" 1", "-0">>(true);
+      assertType<GreaterThan<"-0", " 1">>(false);
+      assertType<GreaterThan<"-1", "-0">>(false);
+      assertType<GreaterThan<" 0.1", "0.1">>(false);
+      assertType<GreaterThan<"0.1", " 0.1">>(false);
+      assertType<GreaterThan<" 0.1", " 0.1">>(false);
+      assertType<GreaterThan<" 0.1", " 0.2">>(false);
+      assertType<GreaterThan<" 0.2", " 0.1">>(true);
+      assertType<GreaterThan<" 0.1", "-0.1">>(true);
+      assertType<GreaterThan<"-0.1", " 0.1">>(false);
+      assertType<GreaterThan<"-0.1", "-0.1">>(false);
+      assertType<GreaterThan<"-0.1", "-0.2">>(true);
+      assertType<GreaterThan<"-0.2", "-0.1">>(false);
+    });
+  });
+
+  describe("RequiredKeysArray", () => {
+    it.todo(
+      "works for borgs with a mix of optional and required properties",
+      () => {
+        const borg = b.object({
+          name: b.string(),
+          age: b.number(),
+          isAlive: b.boolean().optional(),
+          isDead: b.boolean().optional()
+        });
+
+        assertType<RequiredKeysArray<(typeof borg)["meta"]["borgShape"]>>([
+          "name",
+          "age"
+        ]);
+      }
+    );
+
+    it.todo("works for borgs with only required properties", () => {
+      const borg = b.object({
+        name: b.string(),
+        age: b.number()
+      });
+
+      assertType<RequiredKeysArray<(typeof borg)["meta"]["borgShape"]>>([
+        "name",
+        "age"
+      ]);
+    });
+
+    it.todo("works for borgs with only optional properties", () => {
+      const borg = b.object({
+        isAlive: b.boolean().optional(),
+        isDead: b.boolean().optional()
+      });
+
+      assertType<RequiredKeysArray<(typeof borg)["meta"]["borgShape"]>>([]);
+    });
+
+    it.todo("works for borgs with no properties", () => {
+      const borg = b.object({});
+      assertType<RequiredKeysArray<(typeof borg)["meta"]["borgShape"]>>([]);
+    });
   });
 }
 
