@@ -135,7 +135,10 @@ export type BsonSchema<TMeta extends _.Meta> = _.PrettyPrint<
 >;
 
 type UnionBsonSchema<TMeta extends Extract<_.Meta, { kind: "union" }>> = {
-  oneOf: (TMeta["borgMembers"][number]["bsonSchema"] | (TMeta["nullable"] extends true ? { bsonType: "null" } : never))[];
+  oneOf: (
+    | TMeta["borgMembers"][number]["bsonSchema"]
+    | (TMeta["nullable"] extends true ? { bsonType: "null" } : never)
+  )[];
 };
 
 type IdBsonSchema<TMeta extends Extract<_.Meta, { kind: "id" }>> = {
@@ -444,7 +447,6 @@ if (import.meta.vitest) {
           },
           ff: {
             bsonType: "object",
-            required: ["gg", "ii"],
             properties: {
               gg: {
                 oneOf: [
@@ -473,31 +475,43 @@ if (import.meta.vitest) {
                         bsonType: "array",
                         items: {
                           bsonType: "string"
-                        },
+                        }
                       }
                     },
-                    additionalProperties: false,
+                    additionalProperties: false
                   },
                   {
                     bsonType: "null"
-                  },
+                  }
                 ]
               },
               ii: {
-                bsonType: ["object", "null"],
-                required: ["jj"],
-                properties: {
-                  jj: {
-                    bsonType: ["string", "number"]
+                oneOf: [
+                  {
+                    bsonType: "object",
+                    properties: {
+                      jj: {
+                        bsonType: "string"
+                      }
+                    },
+                    additionalProperties: true
+                  },
+                  {
+                    bsonType: "object",
+                    properties: {
+                      jj: {
+                        bsonType: "number"
+                      }
+                    },
+                    additionalProperties: false
                   }
-                },
-                additionalProperties: {
-                  bsonType: ["string", "number"]
-                }
+                ]
               }
-            }
+            },
+            additionalProperties: false
           }
-        }
+        },
+        additionalProperties: false
       });
     });
   });
