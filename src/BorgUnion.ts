@@ -1,7 +1,21 @@
 import { Borg } from "./Borg";
+import { BorgString } from "./BorgString";
+import { BorgNumber } from "./BorgNumber";
+import { BorgBoolean } from "./BorgBoolean";
+import { BorgArray } from "./BorgArray";
+import { BorgObject } from "./BorgObject";
+import { BorgId } from "./BorgId";
 import { BorgError } from "./errors";
 import { getBsonSchema } from "./utils";
 import type * as _ from "./types";
+
+export type AnyBorg =
+  | BorgString
+  | BorgNumber
+  | BorgBoolean
+  | BorgArray
+  | BorgObject
+  | BorgId;
 
 /////////////////////////////////////////////////////////////////////////////////////////////
 ///                                                                                       ///
@@ -194,6 +208,7 @@ export class BorgUnion<
         }
       }
     }
+    throw new Error("UNION_ERROR(fromBson): Invalid input");
     /* c8 ignore stop */
   }
 
