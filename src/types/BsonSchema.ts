@@ -185,7 +185,7 @@ type StringBsonSchema<TMeta extends _.StringMeta<_.Flags, _.MinMax, string>> = {
   (TMeta["pattern"] extends null ? {} : { pattern: TMeta["pattern"] });
 
 type BooleanBsonSchema<TMeta extends _.BooleanMeta<_.Flags>> = {
-  bsonType: TMeta["nullable"] extends true ? ["boolean", "null"] : "boolean";
+  bsonType: TMeta["nullable"] extends true ? ["bool", "null"] : "bool";
 };
 
 /* c8 ignore start */
@@ -359,10 +359,10 @@ if (import.meta.vitest) {
             required: ["p", "r"],
             properties: {
               p: {
-                bsonType: ["boolean", "null"]
+                bsonType: ["bool", "null"]
               },
               r: {
-                bsonType: "boolean"
+                bsonType: "bool"
               }
             },
             additionalProperties: false
@@ -460,7 +460,7 @@ if (import.meta.vitest) {
                     bsonType: "number"
                   },
                   {
-                    bsonType: "boolean"
+                    bsonType: "bool"
                   },
                   {
                     bsonType: "objectId"

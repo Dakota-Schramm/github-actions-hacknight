@@ -71,7 +71,7 @@ export function getBsonSchema<const TMeta extends _.Meta>(
     case "boolean": {
       const { nullable } = meta;
       return {
-        bsonType: nullable ? Object.freeze(["boolean", "null"]) : "boolean"
+        bsonType: nullable ? Object.freeze(["bool", "null"]) : "bool"
       } as any;
     }
     case "id": {
@@ -101,7 +101,7 @@ if (import.meta.vitest) {
         oneOf: [
           { bsonType: "string" },
           { bsonType: ["double", "null"] },
-          { bsonType: "boolean" }
+          { bsonType: "bool" }
         ]
       });
 
@@ -110,7 +110,7 @@ if (import.meta.vitest) {
         oneOf: [
           { bsonType: "string" },
           { bsonType: ["double", "null"] },
-          { bsonType: "boolean" },
+          { bsonType: "bool" },
           { bsonType: "null" }
         ]
       });
@@ -120,7 +120,7 @@ if (import.meta.vitest) {
         oneOf: [
           { bsonType: "string" },
           { bsonType: ["double", "null"] },
-          { bsonType: "boolean" }
+          { bsonType: "bool" }
         ]
       });
     });
@@ -174,12 +174,12 @@ if (import.meta.vitest) {
 
       const schema = getBsonSchema(borg.meta);
       expect(schema).toEqual({
-        bsonType: "boolean"
+        bsonType: "bool"
       });
 
       const schema2 = getBsonSchema(borg.nullable().meta);
       expect(schema2).toEqual({
-        bsonType: ["boolean", "null"]
+        bsonType: ["bool", "null"]
       });
     });
 
@@ -260,7 +260,7 @@ if (import.meta.vitest) {
             maximum: 10
           },
           c: {
-            bsonType: "boolean"
+            bsonType: "bool"
           },
           d: {
             bsonType: "objectId"
@@ -309,7 +309,7 @@ if (import.meta.vitest) {
             oneOf: [
               { bsonType: "string" },
               { bsonType: ["double", "null"] },
-              { bsonType: "boolean" }
+              { bsonType: "bool" }
             ]
           }
         },
