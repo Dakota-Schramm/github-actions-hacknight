@@ -1,6 +1,6 @@
 import type * as _ from ".";
 
-export type BsonSchema<TMeta extends _.Meta> = _.PrettyPrint<
+export type BsonSchema<TMeta extends _.Meta> = Readonly<_.PrettyPrint<
   TMeta extends {
     kind: "string";
     nullable: infer TNullable;
@@ -132,7 +132,7 @@ export type BsonSchema<TMeta extends _.Meta> = _.PrettyPrint<
         >
       >
     : never
->;
+>>;
 
 type UnionBsonSchema<TMeta extends _.UnionMeta<_.Flags, _.Borg>> = {
   oneOf: Array<

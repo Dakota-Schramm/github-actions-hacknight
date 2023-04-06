@@ -29,7 +29,7 @@ import type * as _ from "./types";
 ///                                                                                       ///
 /////////////////////////////////////////////////////////////////////////////////////////////
 
-const B = {
+const b = {
   id: () => new BorgId(),
   string: () => new BorgString(),
   number: () => new BorgNumber(),
@@ -40,7 +40,7 @@ const B = {
   union: <const T extends _.Borg>(members: T[]) => new BorgUnion(members)
 };
 
-declare module B {
+declare module b {
   export type Boolean<TFlags extends _.Flags = _.Flags> = InstanceType<
     typeof BorgBoolean<TFlags>
   >;
@@ -88,17 +88,17 @@ declare module B {
   export type Type<T extends _.Borg> = _.Type<T>;
   export type BsonType<T extends _.Borg> = _.BsonType<T>;
   export type AnyBorg =
-    | B.Object
-    | B.Array
-    | B.String
-    | B.Number
-    | B.Boolean
-    | B.Id
-    | B.Union
-    | B.Borg;
+    | b.Object
+    | b.Array
+    | b.String
+    | b.Number
+    | b.Boolean
+    | b.Id
+    | b.Union
+    | b.Borg;
 }
 
-export default B;
+export default b;
 
 //////////////////////////////////////////////////////////////////////////////////////////////
 ///                                                                                       ///
@@ -130,7 +130,7 @@ if (import.meta.vitest) {
 
   describe("B", () => {
     it("should export the Borg types", () => {
-      expect(B).toMatchInlineSnapshot(
+      expect(b).toMatchInlineSnapshot(
 `{
   "array": [Function],
   "boolean": [Function],

@@ -1,5 +1,29 @@
 # @alecvision/borg
 
+## 0.4.4
+
+### Patch Changes
+
+- fixed npm package release
+
+## 0.4.3
+
+### Patch Changes
+
+- update license
+
+## 0.4.2
+
+### Patch Changes
+
+- Updated documentation and corrected various types
+
+## 0.4.1
+
+### Patch Changes
+
+- Update README
+
 ## 0.4.0
 
 ### Minor Changes
@@ -35,7 +59,7 @@
 
 ### Features
 
-[FEAT]: New methods: `B.Number().range(...)`, `B.String().length(...)`, and `B.Array().length(...)`
+[FEAT]: New methods: `b.Number().range(...)`, `b.String().length(...)`, and `b.Array().length(...)`
 
 ### Bug Fixes, Refactors, and Other Changes
 
