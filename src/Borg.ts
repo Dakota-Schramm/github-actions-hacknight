@@ -126,7 +126,7 @@ if (import.meta.vitest) {
     [b.boolean(), true],
     [b.object({ a: b.string() }), { a: "string" }],
     [b.array(b.string()), ["string"]],
-    [b.union(b.string(), b.number()), "string"],
+    [b.union([b.string(), b.number()]), "string"],
     [b.id(), new ObjectId().toHexString()]
   ] satisfies TestSchema[];
 

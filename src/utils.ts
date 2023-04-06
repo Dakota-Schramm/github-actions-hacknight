@@ -94,7 +94,7 @@ if (import.meta.vitest) {
 
   describe("getBsonSchema", () => {
     it("should return the correct schema for a union", () => {
-      const borg = B.union(B.string(), B.number().nullable(), B.boolean());
+      const borg = B.union([B.string(), B.number().nullable(), B.boolean()]);
 
       const schema = getBsonSchema(borg.meta);
       expect(schema).toEqual({
@@ -242,7 +242,7 @@ if (import.meta.vitest) {
           j: B.object({}).additionalProperties("passthrough").nullable()
         }).additionalProperties("strip"),
         k: B.string().optional(),
-        l: B.union(B.string(), B.number().nullable(), B.boolean())
+        l: B.union([B.string(), B.number().nullable(), B.boolean()])
       }).additionalProperties("strict");
 
       const schema = getBsonSchema(borg.meta);

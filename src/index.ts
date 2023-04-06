@@ -37,7 +37,7 @@ const B = {
   array: <const T extends _.Borg>(itemSchema: T) => new BorgArray(itemSchema),
   object: <const T extends { [key: string]: _.Borg }>(shape: T) =>
     new BorgObject(shape),
-  union: <const T extends _.Borg[]>(...members: T) => new BorgUnion(members)
+  union: <const T extends _.Borg>(members: T[]) => new BorgUnion(members)
 };
 
 declare module B {
@@ -81,7 +81,7 @@ declare module B {
 
   export type Union<
     TFlags extends _.Flags = _.Flags,
-    TMembers extends _.Borg[] = _.Borg[]
+    TMembers extends _.Borg = _.Borg
   > = InstanceType<typeof BorgUnion<TFlags, TMembers>>;
 
   export type Borg = _.Borg;

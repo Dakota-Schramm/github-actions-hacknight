@@ -41,21 +41,21 @@ export type AnyBorg =
 
 export class BorgUnion<
   const TFlags extends _.Flags = ["required", "notNull", "public"],
-  const TMembers extends _.Borg[] = _.Borg[]
+  TMembers extends _.Borg = _.Borg
 > extends Borg {
-  #borgMembers: TMembers;
+  #borgMembers: TMembers[];
   #flags = {
     optional: false,
     nullable: false,
     private: false
   };
 
-  constructor(members: TMembers) {
+  constructor(members: TMembers[]) {
     super();
     this.#borgMembers = Object.freeze(members.map(m => m.copy())) as any;
   }
 
-  static #clone<const TBorg extends BorgUnion<any, any[]>>(borg: TBorg) {
+  static #clone<const TBorg extends BorgUnion<any, any>>(borg: TBorg) {
     const newMembers = borg.#borgMembers.map(m => m.copy()) as any;
     const clone = new BorgUnion(newMembers);
     clone.#flags = { ...borg.#flags };
@@ -82,7 +82,7 @@ export class BorgUnion<
     return BorgUnion.#clone(this);
   }
 
-  parse(input: unknown): _.Parsed<_.Type<TMembers[number]>[][number], TFlags> {
+  parse(input: unknown): _.Parsed<_.Type<TMembers>[][number], TFlags> {
     if (input === undefined) {
       if (this.#borgMembers.some(m => m.meta.optional)) return void 0 as any;
       if (this.#flags.optional) return void 0 as any;
@@ -314,7 +314,7 @@ if (import.meta.vitest) {
   const testCases = [
     [
       "a simple union",
-      () => b.union(b.string(), b.number()),
+      () => b.union([b.string(), b.number()]),
       {
         pass: [
           ["hello", "hello"],
@@ -333,7 +333,7 @@ if (import.meta.vitest) {
     ],
     [
       "a union with a nested union",
-      () => b.union(b.string(), b.union(b.number(), b.boolean())),
+      () => b.union([b.string(), b.union([b.number(), b.boolean()])]),
       {
         pass: [
           ["hello", "hello"],
@@ -352,7 +352,7 @@ if (import.meta.vitest) {
     ],
     [
       "a union with an optional member",
-      () => b.union(b.string(), b.number().optional()),
+      () => b.union([b.string(), b.number().optional()]),
       {
         pass: [
           ["hello", "hello"],
@@ -372,7 +372,7 @@ if (import.meta.vitest) {
     ],
     [
       "a union in combination with an array",
-      () => b.array(b.union(b.string(), b.number())),
+      () => b.array(b.union([b.string(), b.number()])),
       {
         pass: [
           [
@@ -385,7 +385,7 @@ if (import.meta.vitest) {
     ],
     [
       "a union in combination with an object",
-      () => b.object({ a: b.union(b.string(), b.number()) }),
+      () => b.object({ a: b.union([b.string(), b.number()]) }),
       {
         pass: [
           [{ a: "hello" }, { a: "hello" }],
@@ -396,7 +396,7 @@ if (import.meta.vitest) {
     ],
     [
       "a union in combination with an object with optional members",
-      () => b.object({ a: b.union(b.string(), b.number()).optional() }),
+      () => b.object({ a: b.union([b.string(), b.number()]).optional() }),
       {
         pass: [
           [{ a: "hello" }, { a: "hello" }],
@@ -409,10 +409,10 @@ if (import.meta.vitest) {
     [
       "a union of objects with properties in common",
       () =>
-        b.union(
+        b.union([
           b.object({ a: b.string(), b: b.number() }),
           b.object({ a: b.number(), c: b.number() })
-        ),
+        ]),
       {
         pass: [
           [
@@ -494,13 +494,13 @@ if (import.meta.vitest) {
   });
 
   describe("converts to and from BSON correctly", () => {
-    const borg = b.union(
+    const borg = b.union([
       b.string(),
       b.number(),
       b.boolean(),
       b.id(),
       b.object({ a: b.string(), b: b.number(), c: b.id() })
-    );
+    ]);
     const value1 = { a: "hello", b: 123, c: "5f5b5b5b5b5b5b5b5b5b5b5b" };
     const value2 = "hello";
     const value3 = 123;

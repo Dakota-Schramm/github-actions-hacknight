@@ -518,7 +518,7 @@ if (import.meta.vitest) {
             c: b.number(),
             d: b.boolean()
           }),
-          e: b.union(b.boolean(), b.number()),
+          e: b.union([b.boolean(), b.number()]),
           f: b.string().optional()
         }),
       {

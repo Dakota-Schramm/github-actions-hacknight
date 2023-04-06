@@ -44,7 +44,7 @@ export type BsonSchema<TMeta extends _.Meta> = _.PrettyPrint<
         nullable: infer TNullable;
         optional: infer TOptional;
         private: infer TPrivate;
-        borgMembers: infer TBorgs extends _.Borg[];
+        borgMembers: infer TBorgMembers extends _.Borg[];
       }
     ? UnionBsonSchema<
         _.UnionMeta<
@@ -53,7 +53,7 @@ export type BsonSchema<TMeta extends _.Meta> = _.PrettyPrint<
             TNullable extends true ? "nullable" : "notNull",
             TPrivate extends true ? "private" : "public"
           ],
-          TBorgs
+          TBorgMembers[number]
         >
       >
     : TMeta extends {
@@ -134,11 +134,8 @@ export type BsonSchema<TMeta extends _.Meta> = _.PrettyPrint<
     : never
 >;
 
-type UnionBsonSchema<TMeta extends _.UnionMeta<_.Flags, _.Borg[]>> = {
-  oneOf: (
-    | TMeta["borgMembers"][number]["bsonSchema"]
-    | (TMeta["nullable"] extends true ? { bsonType: "null" } : never)
-  )[];
+type UnionBsonSchema<TMeta extends _.UnionMeta<_.Flags, _.Borg>> = {
+  oneOf: TMeta["borgMembers"][number]["bsonSchema"][]
 };
 
 type IdBsonSchema<TMeta extends _.IdMeta<_.Flags, string | _.ObjectId>> = {
@@ -155,15 +152,11 @@ type ObjectBsonSchema<
   bsonType: TMeta["nullable"] extends true ? ["object", "null"] : "object";
 } & (TMeta["requiredKeys"] extends never[]
   ? {}
-  : { required: TMeta["requiredKeys"] }) &
-  ({} extends TMeta["borgShape"]
-    ? {}
-    : {
-        properties: {
-          [k in keyof TMeta["borgShape"]]: TMeta["borgShape"][k]["bsonSchema"];
-        };
-      }) &
-  (TMeta["additionalProperties"] extends "strict" | "strip"
+  : { required: TMeta["requiredKeys"] }) & {
+    properties: {
+      [k in keyof TMeta["borgShape"]]: TMeta["borgShape"][k]["bsonSchema"];
+    };
+  } & (TMeta["additionalProperties"] extends "strict" | "strip"
     ? { additionalProperties: false }
     : TMeta["additionalProperties"] extends _.Borg
     ? { additionalProperties: TMeta["additionalProperties"]["bsonSchema"] }
@@ -189,7 +182,7 @@ type StringBsonSchema<TMeta extends _.StringMeta<_.Flags, _.MinMax, string>> = {
   (TMeta["pattern"] extends null ? {} : { pattern: TMeta["pattern"] });
 
 type BooleanBsonSchema<TMeta extends _.BooleanMeta<_.Flags>> = {
-  bsonType: TMeta["nullable"] extends true ? ["bool", "null"] : "bool";
+  bsonType: TMeta["nullable"] extends true ? ["boolean", "null"] : "boolean";
 };
 
 /* c8 ignore start */
@@ -270,21 +263,21 @@ if (import.meta.vitest) {
     }),
     ff: b.object({
       gg: b
-        .union(
+        .union([
           b.string(),
           b.number().optional(),
           b.boolean(),
           b.id(),
           b.array(b.string()),
           b.object({ hh: b.array(b.string()) }).additionalProperties("strict")
-        )
+        ])
         .nullable(),
       ii: b
-        .union(
+        .union([
           b.object({ jj: b.string() }).additionalProperties("passthrough"),
           b.object({ jj: b.number() }).additionalProperties("strict").optional()
-        )
-        .nullish()
+        ])
+        .nullable()
     })
   });
 
@@ -363,10 +356,10 @@ if (import.meta.vitest) {
             required: ["p", "r"],
             properties: {
               p: {
-                bsonType: ["bool", "null"]
+                bsonType: ["boolean", "null"]
               },
               r: {
-                bsonType: "bool"
+                bsonType: "boolean"
               }
             },
             additionalProperties: false
@@ -387,6 +380,7 @@ if (import.meta.vitest) {
               u: {
                 bsonType: ["array", "null"],
                 items: {
+                  properties: {},
                   bsonType: "object",
                   additionalProperties: {
                     bsonType: "string",
@@ -463,7 +457,7 @@ if (import.meta.vitest) {
                     bsonType: "number"
                   },
                   {
-                    bsonType: "bool"
+                    bsonType: "boolean"
                   },
                   {
                     bsonType: "objectId"
@@ -476,6 +470,7 @@ if (import.meta.vitest) {
                   },
                   {
                     bsonType: "object",
+                    required: ["hh"],
                     properties: {
                       hh: {
                         bsonType: "array",
@@ -495,15 +490,19 @@ if (import.meta.vitest) {
                 oneOf: [
                   {
                     bsonType: "object",
+                    required: ["jj"],
                     properties: {
                       jj: {
                         bsonType: "string"
                       }
-                    },
-                    additionalProperties: true
+                    }
+                  },
+                  {
+                    bsonType: "null"
                   },
                   {
                     bsonType: "object",
+                    required: ["jj"],
                     properties: {
                       jj: {
                         bsonType: "number"

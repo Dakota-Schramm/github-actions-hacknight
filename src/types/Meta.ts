@@ -54,12 +54,14 @@ export type Meta = _.PrettyPrint<
 
 export type UnionMeta<
   TFlags extends _.Flags,
-  TBorgMembers
+  TBorgMembers extends _.Borg
 > = _.PrettyPrint<
+  TBorgMembers extends infer T extends _.Borg ?
   {
     kind: "union";
-    borgMembers: TBorgMembers;
+    borgMembers: T[];
   } & _.GetFlags<TFlags>
+  : never
 >;
 
 export type ObjectMeta<
@@ -132,7 +134,7 @@ export type BooleanMeta<TFlags extends _.Flags> = _.PrettyPrint<
 >;
 
 export type AnyMeta =
-  | UnionMeta<[any, any, any], any[]>
+  | UnionMeta<[any, any, any], any>
   | ObjectMeta<[any, any, any], any, any>
   | ArrayMeta<[any, any, any], [any, any], any>
   | StringMeta<[any, any, any], [any, any], any>
@@ -308,7 +310,7 @@ if (import.meta.vitest) {
       },
       {
         name: "BorgUnion",
-        schema: () => B.union(B.number(), B.string()),
+        schema: () => B.union([B.number(), B.string()]),
         kind: "union",
         extraChecks: [
           borg => borg.meta["borgMembers"] !== null,
