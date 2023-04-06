@@ -14,6 +14,8 @@ type StripSchemasDeep<T> = T extends Extract<Meta, { kind: "object" }>
   : T;
  */
 
+export type AdditionalProperties = "passthrough" | "strict" | "strip" | Borg;
+
 export type IsNegativeNum<T extends number | string | null> = TrimLeft<
   `${T}`,
   " "

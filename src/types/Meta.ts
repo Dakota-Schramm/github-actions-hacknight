@@ -15,7 +15,7 @@ export type Meta = _.PrettyPrint<
         keys: (string | undefined)[];
         requiredKeys: (string | undefined)[];
         borgShape: { [key: string]: _.Borg };
-        additionalProperties: "passthrough" | "strict" | "strip" | _.Borg;
+        additionalProperties: _.AdditionalProperties;
       }
     | {
         borgItems: _.Borg;
@@ -54,7 +54,7 @@ export type Meta = _.PrettyPrint<
 
 export type UnionMeta<
   TFlags extends _.Flags,
-  TBorgMembers extends _.Borg[]
+  TBorgMembers
 > = _.PrettyPrint<
   {
     kind: "union";
@@ -64,7 +64,7 @@ export type UnionMeta<
 
 export type ObjectMeta<
   TFlags extends _.Flags,
-  TOtherProps extends "passthrough" | "strict" | "strip" | _.Borg,
+  TOtherProps extends _.AdditionalProperties,
   TShape extends { [key: string]: _.Borg }
 > = _.PrettyPrint<
   {

@@ -27,17 +27,13 @@ import type * as _ from "./types";
 
 export class BorgObject<
   const TFlags extends _.Flags = ["required", "notNull", "public"],
-  const TOtherProps extends
-    | "passthrough"
-    | "strict"
-    | "strip"
-    | _.Borg = "strip",
+  const TOtherProps extends _.AdditionalProperties = "strip",
   const TShape extends { [key: string]: _.Borg } = {
     [key: string]: _.Borg;
   }
 > extends Borg {
   #borgShape: TShape;
-  #additionalProperties: "passthrough" | "strict" | "strip" | _.Borg = "strip";
+  #additionalProperties: _.AdditionalProperties = "strip";
   #flags = {
     optional: false,
     nullable: false,
@@ -317,7 +313,7 @@ export class BorgObject<
     return clone as any;
   }
 
-  additionalProperties<T extends "passthrough" | "strict" | "strip" | _.Borg>(
+  additionalProperties<T extends _.AdditionalProperties>(
     additionalProperties: T
   ): BorgObject<TFlags, T, TShape> {
     const clone = this.copy();

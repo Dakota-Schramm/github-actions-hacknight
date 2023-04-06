@@ -134,18 +134,24 @@ export type BsonSchema<TMeta extends _.Meta> = _.PrettyPrint<
     : never
 >;
 
-type UnionBsonSchema<TMeta extends Extract<_.Meta, { kind: "union" }>> = {
+type UnionBsonSchema<TMeta extends _.UnionMeta<_.Flags, _.Borg[]>> = {
   oneOf: (
     | TMeta["borgMembers"][number]["bsonSchema"]
     | (TMeta["nullable"] extends true ? { bsonType: "null" } : never)
   )[];
 };
 
-type IdBsonSchema<TMeta extends Extract<_.Meta, { kind: "id" }>> = {
+type IdBsonSchema<TMeta extends _.IdMeta<_.Flags, string | _.ObjectId>> = {
   bsonType: TMeta["nullable"] extends true ? ["objectId", "null"] : "objectId";
 };
 
-type ObjectBsonSchema<TMeta extends Extract<_.Meta, { kind: "object" }>> = {
+type ObjectBsonSchema<
+  TMeta extends _.ObjectMeta<
+    _.Flags,
+    _.AdditionalProperties,
+    { [key: string]: _.Borg }
+  >
+> = {
   bsonType: TMeta["nullable"] extends true ? ["object", "null"] : "object";
 } & (TMeta["requiredKeys"] extends never[]
   ? {}
@@ -163,18 +169,18 @@ type ObjectBsonSchema<TMeta extends Extract<_.Meta, { kind: "object" }>> = {
     ? { additionalProperties: TMeta["additionalProperties"]["bsonSchema"] }
     : {});
 
-type ArrayBsonSchema<TMeta extends Extract<_.Meta, { kind: "array" }>> = {
+type ArrayBsonSchema<TMeta extends _.ArrayMeta<_.Flags, _.MinMax, _.Borg>> = {
   bsonType: TMeta["nullable"] extends true ? ["array", "null"] : "array";
   items: TMeta["borgItems"]["bsonSchema"];
 } & (TMeta["minItems"] extends number ? { minItems: TMeta["minItems"] } : {}) &
   (TMeta["maxItems"] extends number ? { maxItems: TMeta["maxItems"] } : {});
 
-type NumberBsonSchema<TMeta extends Extract<_.Meta, { kind: "number" }>> = {
+type NumberBsonSchema<TMeta extends _.NumberMeta<_.Flags, _.MinMax>> = {
   bsonType: TMeta["nullable"] extends true ? ["number", "null"] : "number";
 } & (TMeta["min"] extends number ? { minimum: TMeta["min"] } : {}) &
   (TMeta["max"] extends number ? { maximum: TMeta["max"] } : {});
 
-type StringBsonSchema<TMeta extends Extract<_.Meta, { kind: "string" }>> = {
+type StringBsonSchema<TMeta extends _.StringMeta<_.Flags, _.MinMax, string>> = {
   bsonType: TMeta["nullable"] extends true ? ["string", "null"] : "string";
 } & (TMeta["minLength"] extends number
   ? { minLength: TMeta["minLength"] }
@@ -182,7 +188,7 @@ type StringBsonSchema<TMeta extends Extract<_.Meta, { kind: "string" }>> = {
   (TMeta["maxLength"] extends number ? { maxLength: TMeta["maxLength"] } : {}) &
   (TMeta["pattern"] extends null ? {} : { pattern: TMeta["pattern"] });
 
-type BooleanBsonSchema<TMeta extends Extract<_.Meta, { kind: "boolean" }>> = {
+type BooleanBsonSchema<TMeta extends _.BooleanMeta<_.Flags>> = {
   bsonType: TMeta["nullable"] extends true ? ["bool", "null"] : "bool";
 };
 
