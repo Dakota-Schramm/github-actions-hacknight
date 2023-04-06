@@ -152,7 +152,7 @@ export class BorgId<
   toBson(input: _.Parsed<TFormat, TFlags>): _.Parsed<_.ObjectId, TFlags> {
     if (input instanceof ObjectId || input === undefined || input === null)
       return input as any;
-    return ObjectId.createFromHexString(input) as any;
+    return ObjectId.createFromHexString(input.toString()) as any;
   }
 
   fromBson(

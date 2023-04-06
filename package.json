@@ -6,6 +6,9 @@
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
   "enginesStrict": true,
+  "files": [
+    "dist/*"
+  ],
   "engines": {
     "node": ">=16.0.0"
   },
