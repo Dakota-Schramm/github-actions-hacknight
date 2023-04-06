@@ -56,12 +56,10 @@ export type UnionMeta<
   TFlags extends _.Flags,
   TBorgMembers extends _.Borg
 > = _.PrettyPrint<
-  TBorgMembers extends infer T extends _.Borg ?
   {
     kind: "union";
-    borgMembers: T[];
+    borgMembers: TBorgMembers[];
   } & _.GetFlags<TFlags>
-  : never
 >;
 
 export type ObjectMeta<

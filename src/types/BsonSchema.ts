@@ -135,7 +135,10 @@ export type BsonSchema<TMeta extends _.Meta> = _.PrettyPrint<
 >;
 
 type UnionBsonSchema<TMeta extends _.UnionMeta<_.Flags, _.Borg>> = {
-  oneOf: TMeta["borgMembers"][number]["bsonSchema"][]
+  oneOf: Array<
+    | TMeta["borgMembers"][number]["bsonSchema"]
+    | (TMeta["nullable"] extends true ? { bsonType: "null" } : never)
+  >;
 };
 
 type IdBsonSchema<TMeta extends _.IdMeta<_.Flags, string | _.ObjectId>> = {
