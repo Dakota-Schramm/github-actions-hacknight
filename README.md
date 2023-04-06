@@ -7,7 +7,7 @@
 [![Release](https://img.shields.io/github/release/alecvision/borg.svg)](npmjs.com/package/@alecvision/borg)
 [![NPM Downloads](https://img.shields.io/npm/dt/@alecvision/borg.svg)](npmjs.com/package/@alecvision/borg)
 
-Borg is TypeSafety as code. Borg Schemas are "Write Once, Use Everywhere" - you can use Borg to parse, validate, assert, serialize, deserialize, and even generate BSON or JSON schemas. Pair Borg with tRPC for a complete end-to-end solution for your API.
+Borg is TypeSafety as code. Borg Schemas are "Write Once, Use Everywhere" - you can use Borg to parse, validate, assert, ~serialize, deserialize,~ (coming soon) and even generate BSON or ~JSON schemas~ (coming soon). Pair Borg with tRPC for a complete end-to-end solution for your API.
 
 
 ## **Getting Started**
@@ -68,7 +68,7 @@ if (userSchema.is(user)) {
 }
 ```
 
-
+<!--
 ### **Serialization**
 
 To serialize objects, first use the try() method to parse the object. You can then serialize the result in one of two ways:
@@ -92,7 +92,7 @@ if (result.ok) {
   console.log("The user object does not match the schema.");
 }
 ```
-
+-->
 
 ### **Error Handling**
 
@@ -129,11 +129,14 @@ Parses the input and returns a new reference that is strongly typed. Throws `Bor
 ### **`.try()`**
 
 Parses an object and returns a result object with the following shape:
-
+<!-- 
 ```ts
 { ok: false, error: BorgError } | { ok: true, value: T, meta: TMeta, serialize: () => schema.serialize.call(schema, value) }
 ```
-
+-->
+```ts
+{ ok: false, error: BorgError } | { ok: true, value: T, meta: TMeta }
+```
 
 ### **`.is()`**
 
@@ -183,12 +186,12 @@ Short for `.nullable().optional()`
 Short for `.notNull().required()`
 
 
-### **`.private()`**
+### **`.private()`** (*currently does nothing*)
 
 Returns an instance of the schema that parses as normal, but fails serialization. If part of an object, the property is removed from the serialized object. If part of an array, the item is removed from the serialized array.
 
 
-### **`.public()`** (*default*)
+### **`.public()`** (*default*) (*currently does nothing*)
 
 Returns an instance of the schema that parses and serializes as normal.
 
@@ -209,22 +212,22 @@ B.string().minLength(4).length(null) // string may be any length
 ```
 
 
-- #### **`.regex()`** (*default*: `null` [*shows as `.*` in type hint*])
+- #### **`.pattern()`** (*default*: `null` [*shows as `.*` in type hint*])
 
 Returns an instance of the schema that validates the string against a regular expression, supplied as a string.
 
 ```ts
-B.string().regex("^[a-z]+$"); // string must contain only lowercase letters
+B.string().pattern("^[a-z]+$"); // string must contain only lowercase letters
 ```
 
 **NOTE**: Special characters in the regular expression must be double-escaped. The typescript inference will display the correct string in all cases EXCEPT when the regular expression includes backslashes. When using backslashes, the type hint will show **_the incorrect number of slashes_**. To work around this, Borg will parse a regex correctly when an additional backslash is used in the backslash escape sequence. i.e. `\\\\` will parse the same as `\\\`, however will show 4 slashes in the type hint.
 
 ```ts
-B.string().regex("^[a-z\\\\]+$"); // string must contain only lowercase letters and backslashes
+B.string().pattern("^[a-z\\\\]+$"); // string must contain only lowercase letters and backslashes
 //  ?^
 //  BorgString<["required", "notNull", "public"], [null, null], "^[a-z\\\\]+$">
 
-B.string().regex("^[a-z\\]+$"); // string must contain only lowercase letters and backslashes
+B.string().pattern("^[a-z\\]+$"); // string must contain only lowercase letters and backslashes
 //  ?^
 //  BorgString<["required", "notNull", "public"], [null, null], "^[a-z\\]+$"> <-- (**incorrect**)
 ```
@@ -247,16 +250,16 @@ B.number().min(5).max(10).range(5, null); // number must be at least 5
 
 ### **Chainable Array Schema Instance Methods**
 
-- #### **`.minLength()`, `.maxLength()`, `.length()`**
+- #### **`.minItems()`, `.maxLength()`, `.length()`**
 
 Returns an instance of the schema that validates the length of the array.
 
 ```ts
 B.array(B.number()).length(5); // array must be exactly 5 items long
-B.array(B.number()).minLength(5); // array must be at least 5 items long
-B.array(B.number()).maxLength(5); // array must be at most 5 items long
+B.array(B.number()).minItems(5); // array must be at least 5 items long
+B.array(B.number()).maxItems(5); // array must be at most 5 items long
 B.array(B.number()).length(5, 10); // array must be at least 5 and at most 10 items long
-B.array(B.number()).minLength(4).minLength(null) // array may be any length
+B.array(B.number()).minItems(4).minItems(null) // array may be any length
 ```
 
 ## **Chaining**
