@@ -2,9 +2,9 @@
 
 <!--Badges-->
 
-[![License](https://img.shields.io/github/license/alecvision/borg.svg)](github.com/alecvision/borg/blob/main/LICENSE)
-[![Release](https://img.shields.io/github/release/alecvision/borg.svg)](https://www.npmjs.com/package/@alecvision/borg)
-[![NPM Downloads](https://img.shields.io/npm/dt/@alecvision/borg.svg)](https://www.npmjs.com/package/@alecvision/borg)
+[![Version](https://img.shields.io/npm/v/@alecvision/borg)](https://www.npmjs.com/package/@alecvision/borg)
+[![License](https://img.shields.io/npm/l/borg?registry_uri=https%3A%2F%2Fregistry.npmjs.com%2F%40alecvision)](https://www.npmjs.com/package/@alecvision/borg)
+[![NPM Downloads](https://img.shields.io/npm/dt/@alecvision/borg?color=yellow)](https://www.npmjs.com/package/@alecvision/borg)
 
 Borg is TypeSafety as code. Borg Schemas are "Write Once, Use Everywhere" - you can use Borg to parse, validate, assert, ~serialize, deserialize,~ (coming soon) and even generate BSON or ~JSON schemas~ (coming soon). Pair Borg with tRPC for a complete end-to-end solution for your API.
 
