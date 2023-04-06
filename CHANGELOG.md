@@ -1,5 +1,11 @@
 # @alecvision/borg
 
+## 0.4.2
+
+### Patch Changes
+
+- Updated documentation and corrected various types
+
 ## 0.4.1
 
 ### Patch Changes
