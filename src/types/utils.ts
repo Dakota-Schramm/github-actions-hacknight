@@ -14,6 +14,8 @@ type StripSchemasDeep<T> = T extends Extract<Meta, { kind: "object" }>
   : T;
  */
 
+export type Writable<T> = T extends object ? { -readonly [K in keyof T]: T[K] } : T extends Array<infer U> ? Array<Writable<U>> : T;
+
 export type AdditionalProperties = "passthrough" | "strict" | "strip" | Borg;
 
 export type IsNegativeNum<T extends number | string | null> = TrimLeft<
@@ -140,7 +142,7 @@ export type Parsed<TType, TFlags extends Flags> = [
   TFlags[1]
 ] extends [infer TOptional extends Flags[0], infer TNullable extends Flags[1]]
   ?
-      | TType
+      | Writable<TType>
       | (TNullable extends "nullable" ? null : never)
       | (TOptional extends "optional" ? undefined : never)
   : never;

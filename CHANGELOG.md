@@ -41,7 +41,7 @@
 
 ### Features
 
-[FEAT]: New methods: `B.Number().range(...)`, `B.String().length(...)`, and `B.Array().length(...)`
+[FEAT]: New methods: `b.Number().range(...)`, `b.String().length(...)`, and `b.Array().length(...)`
 
 ### Bug Fixes, Refactors, and Other Changes
 

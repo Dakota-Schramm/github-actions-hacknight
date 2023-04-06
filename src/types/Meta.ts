@@ -55,18 +55,18 @@ export type Meta = _.PrettyPrint<
 export type UnionMeta<
   TFlags extends _.Flags,
   TBorgMembers extends _.Borg
-> = _.PrettyPrint<
+> = Readonly<_.PrettyPrint<
   {
     kind: "union";
     borgMembers: TBorgMembers[];
   } & _.GetFlags<TFlags>
->;
+>>;
 
 export type ObjectMeta<
   TFlags extends _.Flags,
   TOtherProps extends _.AdditionalProperties,
   TShape extends { [key: string]: _.Borg }
-> = _.PrettyPrint<
+> = Readonly<_.PrettyPrint<
   {
     kind: "object";
     keys: Array<Extract<keyof TShape, string>>;
@@ -74,26 +74,26 @@ export type ObjectMeta<
     borgShape: TShape;
     additionalProperties: TOtherProps;
   } & _.GetFlags<TFlags>
->;
+>>;
 
 export type ArrayMeta<
   TFlags extends _.Flags,
   TLength extends _.MinMax,
   TItemBorg extends _.Borg
-> = _.PrettyPrint<
+> = Readonly<_.PrettyPrint<
   {
     borgItems: TItemBorg;
     kind: "array";
     maxItems: TLength[1];
     minItems: TLength[0];
   } & _.GetFlags<TFlags>
->;
+>>;
 
 export type StringMeta<
   TFlags extends _.Flags,
   TLength extends _.MinMax,
   TPattern extends string
-> = _.PrettyPrint<
+> = Readonly<_.PrettyPrint<
   {
     kind: "string";
     maxLength: TLength[1];
@@ -102,34 +102,34 @@ export type StringMeta<
     ? { pattern: null; regex: null }
     : { pattern: TPattern; regex: RegExp }) &
     _.GetFlags<TFlags>
->;
+>>;
 
 export type NumberMeta<
   TFlags extends _.Flags,
   TRange extends _.MinMax
-> = _.PrettyPrint<
+> = Readonly<_.PrettyPrint<
   {
     kind: "number";
     max: TRange[1];
     min: TRange[0];
   } & _.GetFlags<TFlags>
->;
+>>;
 
 export type IdMeta<
   TFlags extends _.Flags,
   TFormat extends string | _.ObjectId
-> = _.PrettyPrint<
+> = Readonly<_.PrettyPrint<
   {
     kind: "id";
     format: TFormat extends _.ObjectId ? "oid" : "string";
   } & _.GetFlags<TFlags>
->;
+>>;
 
-export type BooleanMeta<TFlags extends _.Flags> = _.PrettyPrint<
+export type BooleanMeta<TFlags extends _.Flags> = Readonly<_.PrettyPrint<
   {
     kind: "boolean";
   } & _.GetFlags<TFlags>
->;
+>>;
 
 export type AnyMeta =
   | UnionMeta<[any, any, any], any>
@@ -143,7 +143,7 @@ export type AnyMeta =
 /* c8 ignore start */
 //@ts-ignore - vitest handles this import.meta check
 if (import.meta.vitest) {
-  const [{ describe, it, expect }, { default: B }, { Borg }] =
+  const [{ describe, it, expect }, { default: b }, { Borg }] =
     //@ts-ignore - vitest handles this top-level await
     await Promise.all([
       import("vitest"),
@@ -162,7 +162,7 @@ if (import.meta.vitest) {
     const testCases = [
       {
         name: "BorgString",
-        schema: () => B.string(),
+        schema: () => b.string(),
         kind: "string",
         extraChecks: [
           borg => borg.meta["pattern"] === null,
@@ -172,7 +172,7 @@ if (import.meta.vitest) {
       },
       {
         name: "BorgString with min/max",
-        schema: () => B.string().minLength(0).maxLength(10),
+        schema: () => b.string().minLength(0).maxLength(10),
         kind: "string",
         extraChecks: [
           borg => borg.meta["pattern"] === null,
@@ -182,7 +182,7 @@ if (import.meta.vitest) {
       },
       {
         name: "BorgString with exact length",
-        schema: () => B.string().length(10),
+        schema: () => b.string().length(10),
         kind: "string",
         extraChecks: [
           borg => borg.meta["pattern"] === null,
@@ -192,7 +192,7 @@ if (import.meta.vitest) {
       },
       {
         name: "BorgString with length range",
-        schema: () => B.string().length(0, 10),
+        schema: () => b.string().length(0, 10),
         kind: "string",
         extraChecks: [
           borg => borg.meta["pattern"] === null,
@@ -202,7 +202,7 @@ if (import.meta.vitest) {
       },
       {
         name: "BorgString with pattern",
-        schema: () => B.string().pattern("C:\\\\Users\\\\.+"),
+        schema: () => b.string().pattern("C:\\\\Users\\\\.+"),
         kind: "string",
         extraChecks: [
           borg => borg.meta["pattern"] === "C:\\\\Users\\\\.+",
@@ -213,7 +213,7 @@ if (import.meta.vitest) {
       {
         name: "BorgString with pattern and range",
         schema: () =>
-          B.string().minLength(0).maxLength(14).pattern("C:\\\\Users\\\\.+"),
+          b.string().minLength(0).maxLength(14).pattern("C:\\\\Users\\\\.+"),
         kind: "string",
         extraChecks: [
           borg => borg.meta["pattern"] === "C:\\\\Users\\\\.+",
@@ -223,7 +223,7 @@ if (import.meta.vitest) {
       },
       {
         name: "BorgNumber",
-        schema: () => B.number(),
+        schema: () => b.number(),
         kind: "number",
         extraChecks: [
           borg => borg.meta["min"] === null,
@@ -232,7 +232,7 @@ if (import.meta.vitest) {
       },
       {
         name: "BorgNumber with min/max",
-        schema: () => B.number().min(0).max(10),
+        schema: () => b.number().min(0).max(10),
         kind: "number",
         extraChecks: [
           borg => borg.meta["min"] === 0,
@@ -241,7 +241,7 @@ if (import.meta.vitest) {
       },
       {
         name: "BorgNumber with range",
-        schema: () => B.number().range(0, 10),
+        schema: () => b.number().range(0, 10),
         kind: "number",
         extraChecks: [
           borg => borg.meta["min"] === 0,
@@ -250,13 +250,13 @@ if (import.meta.vitest) {
       },
       {
         name: "BorgBoolean",
-        schema: () => B.boolean(),
+        schema: () => b.boolean(),
         kind: "boolean",
         extraChecks: []
       },
       {
         name: "BorgArray",
-        schema: () => B.array(B.number()),
+        schema: () => b.array(b.number()),
         kind: "array",
         extraChecks: [
           borg => borg.meta["minItems"] === null,
@@ -267,7 +267,7 @@ if (import.meta.vitest) {
       },
       {
         name: "BorgArray with min/max",
-        schema: () => B.array(B.number()).minItems(0).maxItems(10),
+        schema: () => b.array(b.number()).minItems(0).maxItems(10),
         kind: "array",
         extraChecks: [
           borg => borg.meta["minItems"] === 0,
@@ -278,7 +278,7 @@ if (import.meta.vitest) {
       },
       {
         name: "BorgArray with length",
-        schema: () => B.array(B.number()).length(0, 10),
+        schema: () => b.array(b.number()).length(0, 10),
         kind: "array",
         extraChecks: [
           borg => borg.meta["minItems"] === 0,
@@ -290,10 +290,10 @@ if (import.meta.vitest) {
       {
         name: "BorgObject",
         schema: () =>
-          B.object({
-            a: B.number(),
-            b: B.number(),
-            c: B.number()
+          b.object({
+            a: b.number(),
+            b: b.number(),
+            c: b.number()
           }),
         kind: "object",
         extraChecks: [
@@ -308,7 +308,7 @@ if (import.meta.vitest) {
       },
       {
         name: "BorgUnion",
-        schema: () => B.union([B.number(), B.string()]),
+        schema: () => b.union([b.number(), b.string()]),
         kind: "union",
         extraChecks: [
           borg => borg.meta["borgMembers"] !== null,
@@ -364,7 +364,7 @@ if (import.meta.vitest) {
         it("Should treat Borgs nested in meta like any other Borg", () => {
           const borg = schema().optional();
           if (borg.meta.kind === "object") {
-            const borg2 = B.object(borg.meta.borgShape);
+            const borg2 = b.object(borg.meta.borgShape);
             const borg3 = borg.required();
 
             expect(borg.parse({ a: 1, b: 2, c: 3 })).toEqual({
@@ -392,7 +392,7 @@ if (import.meta.vitest) {
             expect(borg2.meta.optional).toEqual(false);
             expect(borg3.meta.optional).toEqual(false);
           } else if (borg.meta.kind === "array") {
-            const borg2 = B.array(borg.meta.borgItems);
+            const borg2 = b.array(borg.meta.borgItems);
             const borg3 = borg.required();
 
             expect(borg.parse([1, 2, 3])).toEqual([1, 2, 3]);
