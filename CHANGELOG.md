@@ -1,5 +1,11 @@
 # @alecvision/borg
 
+## 0.4.7
+
+### Patch Changes
+
+- ci updates
+
 ## 0.4.6
 
 ### Patch Changes
