@@ -18,6 +18,8 @@ jobs:
         contents: read
     steps:
         - uses: actions/checkout@v3
+          with: 
+            ref: 'stage'
         - uses: actions/setup-node@v3
           with:
             node-version: 16.x
