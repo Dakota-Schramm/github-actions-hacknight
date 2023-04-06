@@ -1,6 +1,6 @@
 {
   "name": "@alecvision/borg",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "description": "Model your data with Borg and get run-time type validation, TypeScript types, (de)serialization, and MongoDB niceties such as BSON type conversion and auto-generated validation schemas - for free. ",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",

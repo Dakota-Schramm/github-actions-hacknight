@@ -1,5 +1,11 @@
 # @alecvision/borg
 
+## 0.4.0
+
+### Minor Changes
+
+- [BREAKING]: Incomplete features were removed, various bugs fixed, and 100% test coverage has been achieved.
+
 ## 0.3.1
 
 ### Patch Changes
