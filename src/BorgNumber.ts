@@ -199,11 +199,7 @@ export class BorgNumber<
     clone.#flags.private = false;
     return clone as any;
   }
-  /*TODO:
-  If max is set, and min is then set to a value greater than max,
-  remove max. If min is set, and max is then set to a value less than
-  min, remove min.
-  */
+  
   min<const Min extends number | null>(
     min: Min
   ): [_.GreaterThan<Min, TRange[1]>, Min extends null ? true : false] extends [
