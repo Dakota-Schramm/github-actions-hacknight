@@ -227,17 +227,13 @@ export class BorgObject<
 
   //TODO: Should we be treating 'undefined' in any special way when converting to BSON?
   toBson<
-    const TInput extends Partial<
+    TInput extends Partial<
       _.Parsed<{ [k in keyof TShape]: _.Type<TShape[k]> }, TFlags>
-    > = Partial<_.Parsed<{ [k in keyof TShape]: _.Type<TShape[k]> }, TFlags>>
+    >
   >(
     input: TInput
   ): {
-    [k in keyof TShape as keyof TInput]: k extends keyof TInput
-      ? TInput[k] extends undefined
-        ? never
-        : _.BsonType<TShape[k]>
-      : never;
+    [k in keyof TInput]: k extends keyof TShape ? _.BsonType<TShape[k]> : unknown;
   } {
     if (input === null || input === undefined) return input as any;
     const result = {} as any;
