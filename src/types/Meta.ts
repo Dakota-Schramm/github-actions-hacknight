@@ -382,12 +382,11 @@ if (import.meta.vitest) {
               b: 2,
               c: 3
             });
+            expect(borg2).not.toBe(borg);
+            expect(borg3).not.toBe(borg);
             expect(borg.parse(undefined)).toBeUndefined();
             expect(() => borg2.parse(undefined)).toThrow();
             expect(() => borg3.parse(undefined)).toThrow();
-            expect(borg2).not.toMatchObject(borg);
-            expect(borg3).not.toMatchObject(borg);
-            expect(borg3).toMatchObject(borg2);
             expect(borg.meta.optional).toEqual(true);
             expect(borg2.meta.optional).toEqual(false);
             expect(borg3.meta.optional).toEqual(false);
@@ -395,39 +394,14 @@ if (import.meta.vitest) {
             const borg2 = b.array(borg.meta.borgItems);
             const borg3 = borg.required();
 
+            expect(borg2).not.toBe(borg);
+            expect(borg3).not.toBe(borg);
             expect(borg.parse([1, 2, 3])).toEqual([1, 2, 3]);
             expect(borg2.parse([1, 2, 3])).toEqual([1, 2, 3]);
             expect(borg3.parse([1, 2, 3])).toEqual([1, 2, 3]);
             expect(borg.parse(undefined)).toBeUndefined();
             expect(() => borg2.parse(undefined)).toThrow();
             expect(() => borg3.parse(undefined)).toThrow();
-            /* FIXME:
-            Since `borg` is marked optional, neither `borg2` nor `borg3` should be equal to `borg` after calling `required()`,
-            but they should be equal to each other. 
-          
-            A reference check with expect().not.toBe() passes as expected, but for some reason,
-            expect(borg2).not.toMatchObject(borg) fails here. Notably, this is not the case in the object test case above, which works as expected.
-            The same behavior is also seen when using expect(borg2).not.toEqual(borg), and when borg2 is substituted with borg3.
-
-            I have no clue why. The schemas parse as expected, and the meta properteis and bson schemas are correct for each.
-            I'm going to chalk it up to a bug in the testing framework, but I'm leaving this here in case I ever figure it out.
-
-            The expected behavior is that calling any of the following methods should return a new instance of the underlying Borg, modified as specified:
-              - optional()
-              - nullable()
-              - nullish()
-              - private()
-              - required()
-              - notNull()
-              - notNullish()
-              - public()
-              - copy()
-              - .pattern()                
-              - length methods (min, max, minLength, maxLength, length, range, etc.)
-            */
-            expect(borg2).not.toBe(borg);
-            expect(borg3).not.toBe(borg);
-            expect(borg3).toEqual(borg2);
             expect(borg.meta.optional).toEqual(true);
             expect(borg2.meta.optional).toEqual(false);
             expect(borg3.meta.optional).toEqual(false);
