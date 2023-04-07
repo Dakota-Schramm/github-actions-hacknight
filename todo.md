@@ -5,14 +5,12 @@
  * //TODO: Implement:
  * - Maps & Sets
  * - Better errors
- * - Unions
  * - Tuples?
  * - BorgArray.unique()? BorgArray.uniqueBy()? BorgArray.uniqueByPath()?
- * - "Additional Properties" & "Additional Items"
+ * - "Additional Items"
  * - Enums
  * - Documents
  * - Dates
- * - "Passthrough" & "Strip" & "Strict" modes
  * - Coercion
  */
 
