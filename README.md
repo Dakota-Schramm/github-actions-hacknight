@@ -27,7 +27,7 @@ Borg is TypeSafety as code. Borg Schemas are "Write Once, Use Everywhere" - you 
     - [`.required()`](#required)
     - [`.nullable()`](#nullable)
     - [`.notNull()`](#notnull)
-    - [`.Nullish()`](#nullish)
+    - [`.nullish()`](#nullish)
     - [`.notNullish()`](#notnullish)
     - [`.private()`](#private)
     - [`.public()`](#public)
@@ -212,7 +212,7 @@ Returns an instance of the schema that permits null values.
 
 Returns an instance of the schema that does not permit null values.
 
-### **`.Nullish()`**
+### **`.nullish()`**
 
 Short for `.nullable().optional()`
 

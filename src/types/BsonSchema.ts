@@ -284,7 +284,7 @@ if (import.meta.vitest) {
     })
   });
 
-  describe.todo("String BsonSchemas", () => {
+  describe("String BsonSchemas", () => {
     it("should produce the correct bsonschema for strings", () => {
       assertType<BsonSchema<(typeof TestCase)["meta"]>>({
         bsonType: "object",

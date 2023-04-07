@@ -131,15 +131,6 @@ export type BooleanMeta<TFlags extends _.Flags> = Readonly<_.PrettyPrint<
   } & _.GetFlags<TFlags>
 >>;
 
-export type AnyMeta =
-  | UnionMeta<[any, any, any], any>
-  | ObjectMeta<[any, any, any], any, any>
-  | ArrayMeta<[any, any, any], [any, any], any>
-  | StringMeta<[any, any, any], [any, any], any>
-  | NumberMeta<[any, any, any], [any, any]>
-  | IdMeta<[any, any, any], any>
-  | BooleanMeta<[any, any, any]>;
-
 /* c8 ignore start */
 //@ts-ignore - vitest handles this import.meta check
 if (import.meta.vitest) {

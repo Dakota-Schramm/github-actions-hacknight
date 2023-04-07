@@ -8,6 +8,10 @@ export default defineConfig({
     coverage: {
       provider: "c8",
     },
+    typecheck: {
+      checker: "tsc",
+      include: ["src/**/*"],
+    }
   },
   build: {
     commonjsOptions: {
