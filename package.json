@@ -14,16 +14,15 @@
   },
   "scripts": {
     "dev": "vitest --coverage --ui",
-    "test": "vitest run --coverage",
+    "test": "vitest run --coverage && vitest typecheck",
     "build": "tsup",
-    "lint": "npx tsc",
-    "ci": "npm ci && npm run lint && npm run test && npm run build",
+    "ci": "npm ci && npm run test && npm run build",
     "stage": "npm run build && npm publish --access=restricted --tag=next",
     "release": "npm run build && changeset publish"
   },
   "repository": {
     "type": "git",
-    "url": "github.com/alecvision/borg"
+    "url": "https://github.com/alecvision/borg"
   },
   "keywords": [
     "odm",

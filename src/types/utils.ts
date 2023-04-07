@@ -546,7 +546,7 @@ if (import.meta.vitest) {
   });
 
   describe("RequiredKeysArray", () => {
-    it.todo(
+    it(
       "works for borgs with a mix of optional and required properties",
       () => {
         const borg = b.object({
@@ -563,7 +563,7 @@ if (import.meta.vitest) {
       }
     );
 
-    it.todo("works for borgs with only required properties", () => {
+    it("works for borgs with only required properties", () => {
       const borg = b.object({
         name: b.string(),
         age: b.number()
@@ -575,7 +575,7 @@ if (import.meta.vitest) {
       ]);
     });
 
-    it.todo("works for borgs with only optional properties", () => {
+    it("works for borgs with only optional properties", () => {
       const borg = b.object({
         isAlive: b.boolean().optional(),
         isDead: b.boolean().optional()
@@ -584,7 +584,7 @@ if (import.meta.vitest) {
       assertType<RequiredKeysArray<(typeof borg)["meta"]["borgShape"]>>([]);
     });
 
-    it.todo("works for borgs with no properties", () => {
+    it("works for borgs with no properties", () => {
       const borg = b.object({});
       assertType<RequiredKeysArray<(typeof borg)["meta"]["borgShape"]>>([]);
     });

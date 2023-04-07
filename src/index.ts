@@ -87,15 +87,6 @@ declare module b {
   export type Borg = _.Borg;
   export type Type<T extends _.Borg> = _.Type<T>;
   export type BsonType<T extends _.Borg> = _.BsonType<T>;
-  export type AnyBorg =
-    | b.Object
-    | b.Array
-    | b.String
-    | b.Number
-    | b.Boolean
-    | b.Id
-    | b.Union
-    | b.Borg;
 }
 
 export default b;
