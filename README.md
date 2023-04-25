@@ -277,7 +277,7 @@ b.number().min(5).max(10).range(5, null); // number must be at least 5
 
 ### **Chainable Array Schema Instance Methods**
 
-- #### **`.minItems()`, `.maxLength()`, `.length()`**
+- #### **`.minItems()`, `.maxItems()`, `.length()`**
 
 Returns an instance of the schema that validates the length of the array.
 
