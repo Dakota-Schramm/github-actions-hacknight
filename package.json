@@ -16,9 +16,10 @@
     "dev": "vitest --coverage --ui",
     "test": "vitest run --coverage && vitest typecheck --run",
     "build": "tsup",
+    "version": "npx commit-and-tag-version",
+    "postversion": "git commit -am \"chore: bump version\" && git push",
     "ci": "npm ci && npm run test && npm run build",
-    "stage": "npm run build && npm publish --access=restricted --tag=next",
-    "release": "npm run build && changeset publish",
+    "release": "npm run build && npm publish --access=public",
     "clean": "rm -rf dist && rm -rf coverage && rm -rf node_modules"
   },
   "repository": {
@@ -44,7 +45,6 @@
   "author": "Alec Helmturner",
   "license": "ISC",
   "devDependencies": {
-    "@changesets/cli": "^2.26.0",
     "@vitest/coverage-c8": "^0.29.3",
     "@vitest/ui": "^0.29.2",
     "prettier": "^2.8.4",
