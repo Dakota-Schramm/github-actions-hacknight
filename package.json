@@ -14,11 +14,12 @@
   },
   "scripts": {
     "dev": "vitest --coverage --ui",
-    "test": "vitest run --coverage && vitest typecheck",
+    "test": "vitest run --coverage && vitest typecheck --run",
     "build": "tsup",
     "ci": "npm ci && npm run test && npm run build",
     "stage": "npm run build && npm publish --access=restricted --tag=next",
-    "release": "npm run build && changeset publish"
+    "release": "npm run build && changeset publish",
+    "clean": "rm -rf dist && rm -rf coverage && rm -rf node_modules"
   },
   "repository": {
     "type": "git",
