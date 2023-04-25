@@ -1,6 +1,7 @@
 # TWD Hack Night - GitHub Actions
 
 [Intro to GH Actions](https://fullstackopen.com/en/part11/getting_started_with_git_hub_actions#getting-started-with-workflows)
+[Guide to Conventional Commits](https://gist.github.com/qoomon/5dfcdf8eec66a051ecd85625518cfd13)
 [`commit-and-tag-version` Docs](https://github.com/absolute-version/commit-and-tag-version)
 ## Stage 1 - Create a "Hello World" workflow
 - [ ] Workflow should run when triggered manually
@@ -26,6 +27,7 @@
 - [ ] Workflow should run on push to the "main" branch
 - [ ] Workflow shoul use the repository secrets (NPM_TOKEN, GITHUB_TOKEN)
 - [ ] Workflow should publish the package to npm when run
+- *TIP: If you dont bump the version, publish will fail (run `npm run version` before pushing)*
 ---
 
 ## Stage 5 - Create a STAGING workflow
@@ -33,6 +35,7 @@
 - [ ] Workflow should run on push to the "stage" branch
 - [ ] Workflow should publish to the Github Package Registry when run, with a tag of `next`
 - [ ] Workflow should not publish to npm when run
+- *TIP: If you dont bump the version, publish will fail (run `npm run version` before pushing)*
 ---
 
 ## Stage 6 - Create a VERSION workflow
